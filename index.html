@@ -70,8 +70,17 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 .leg-dot.pass{background:rgba(0,229,160,0.4)}.leg-dot.under{background:rgba(251,191,36,0.4)}
 .leg-dot.absent{background:rgba(255,107,107,0.4)}.leg-dot.holiday{background:rgba(90,96,128,0.4)}
-.day-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:0.875rem;margin-bottom:1.2rem;display:none}
-.day-panel.show{display:block}
+.day-panel{display:none}
+.status-popup{position:fixed;z-index:200;background:#1c2035;border:1px solid var(--accent);border-radius:12px;padding:0.75rem;box-shadow:0 8px 32px rgba(0,0,0,0.5);min-width:180px}
+.status-popup-title{font-size:0.72rem;color:var(--accent3);font-weight:700;margin-bottom:8px}
+.status-popup-btns{display:flex;flex-direction:column;gap:5px}
+.sp-btn{font-size:0.8rem;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-family:'Noto Sans KR',sans-serif;text-align:left;transition:all 0.12s}
+.sp-btn:hover{border-color:#444b70;color:var(--text)}
+.sp-btn.pass.active,.sp-btn.pass:hover{background:rgba(0,229,160,0.15);color:var(--accent);border-color:rgba(0,229,160,0.4)}
+.sp-btn.under.active,.sp-btn.under:hover{background:rgba(251,191,36,0.15);color:var(--warn);border-color:rgba(251,191,36,0.4)}
+.sp-btn.absent.active,.sp-btn.absent:hover{background:rgba(255,107,107,0.15);color:var(--danger);border-color:rgba(255,107,107,0.4)}
+.sp-btn.holiday.active,.sp-btn.holiday:hover{background:rgba(90,96,128,0.25);color:#aaa;border-color:#444}
+.sp-btn.clear.active,.sp-btn.clear:hover{background:var(--surface2);color:var(--text);border-color:var(--border)}
 .day-panel-title{font-size:0.8rem;font-weight:700;margin-bottom:10px;color:var(--accent3)}
 .day-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)}
 .day-row:last-child{border-bottom:none}
@@ -205,10 +214,6 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
     <div class="leg-item"><div class="leg-dot holiday"></div>휴일 사용</div>
   </div>
 
-  <div class="day-panel" id="dayPanel">
-    <div class="day-panel-title" id="dayPanelTitle"></div>
-    <div id="dayPanelRows"></div>
-  </div>
 
   <div class="members-section">
     <div class="members-header">
@@ -374,26 +379,66 @@ function renderCalendar(){
     cell.className=cls;
     const emojis=active.map(m=>{const s=getStatus(d,m.id)||'none';return`<span class="cal-em ${s}" title="${m.name}">${m.emoji}</span>`;}).join('');
     cell.innerHTML=`<div class="cal-day-row">${hol?`<span class="cal-holiday">${hol}</span>`:''}<span class="cal-day">${d}</span></div><div class="cal-emojis">${emojis}</div>`;
-    const dd=d;cell.addEventListener('click',()=>handleCalClick(dd));
+    const dd=d;cell.addEventListener('click',(e)=>handleCalClick(dd,e));
     grid.appendChild(cell);
   }
 }
 
-function renderDayPanel(){
-  const panel=document.getElementById('dayPanel');
-  if(!selDay){panel.classList.remove('show');return;}
-  panel.classList.add('show');
-  document.getElementById('dayPanelTitle').textContent=`${curMonth+1}월 ${selDay}일 인증 입력`;
-  const active=members.filter(m=>m.active);
-  const showMembers=isAdmin?active:active.filter(m=>m.id==myId);
-  const STATUSES=[{k:null,l:'—',c:'clear'},{k:'pass',l:'인증',c:'pass'},{k:'under',l:'미달',c:'under'},{k:'absent',l:'결석',c:'absent'},{k:'holiday',l:'휴일',c:'holiday'}];
-  document.getElementById('dayPanelRows').innerHTML=showMembers.map(m=>{
-    const cur=getStatus(selDay,m.id)||null;
-    return`<div class="day-row"><span class="day-row-name"><span>${m.emoji}</span>${m.name}</span><div class="status-btns">${
-      STATUSES.map(({k,l,c})=>`<button class="s-btn ${c}${cur===k?' active':''}" onclick="window.setStatus(${m.id},'${k||''}')">${l}</button>`).join('')
-    }</div></div>`;
+function closePopup(){ document.querySelector('.status-popup')?.remove(); }
+
+function showStatusPopup(day, rect){
+  closePopup();
+  const me = isAdmin ? null : memberById(parseInt(myId));
+  const showMembers = isAdmin ? members.filter(m=>m.active) : (me ? [me] : []);
+  if(!showMembers.length) return;
+
+  const popup = document.createElement('div');
+  popup.className = 'status-popup';
+
+  // 팝업 위치 계산
+  const top = rect.bottom + window.scrollY + 6;
+  const left = Math.min(rect.left, window.innerWidth - 200);
+  popup.style.top = top + 'px';
+  popup.style.left = Math.max(8, left) + 'px';
+
+  const STATUSES = [{k:null,l:'— 없음',c:'clear'},{k:'pass',l:'✓ 인증',c:'pass'},{k:'under',l:'! 미달',c:'under'},{k:'absent',l:'✕ 결석',c:'absent'},{k:'holiday',l:'휴 휴일',c:'holiday'}];
+
+  popup.innerHTML = showMembers.map(m => {
+    const cur = getStatus(day, m.id)||null;
+    return `<div style="margin-bottom:${showMembers.length>1?'10px':'0'}">
+      ${showMembers.length>1?`<div style="font-size:0.7rem;color:var(--muted);margin-bottom:5px">${m.emoji} ${m.name}</div>`:''}
+      <div class="status-popup-title">${curMonth+1}월 ${day}일</div>
+      <div class="status-popup-btns">${
+        STATUSES.map(({k,l,c})=>`<button class="sp-btn ${c}${cur===k?' active':''}" onclick="window.popupSetStatus(${day},${m.id},'${k||''}')">${l}</button>`).join('')
+      }</div>
+    </div>`;
   }).join('');
+
+  document.body.appendChild(popup);
+
+  // 바깥 클릭시 닫기
+  setTimeout(()=>{
+    document.addEventListener('click', function handler(e){
+      if(!popup.contains(e.target)){popup.remove();document.removeEventListener('click',handler);}
+    });
+  }, 10);
 }
+
+async function handleCalClick(day, e){
+  e.stopPropagation();
+  if(!myId && !isAdmin){alert('먼저 위에서 내 이름을 선택해주세요!');return;}
+  const rect = e.currentTarget.getBoundingClientRect();
+  selDay = day;
+  showStatusPopup(day, rect);
+}
+
+window.popupSetStatus = async function(day, memberId, statusRaw){
+  const status = statusRaw===''?null:statusRaw;
+  await saveStatus(curYear, curMonth, day, memberId, status);
+  closePopup();
+};
+
+function renderDayPanel(){ /* 팝업 방식으로 대체 */ }
 
 function renderMemberGrid(){
   document.getElementById('addMemberBtn').style.display=isAdmin?'':'none';
@@ -457,20 +502,6 @@ window.pickMyEmoji=async function(emoji){
   document.querySelector('.emoji-overlay')?.remove();
   render();
 };
-
-async function handleCalClick(day){
-  if(isAdmin){selDay=selDay===day?null:day;render();return;}
-  if(!myId){alert('먼저 위에서 내 이름을 선택해주세요!');return;}
-  const me=memberById(parseInt(myId));
-  if(!me||!me.active)return;
-  selDay=selDay===day?null:day;
-  render();
-  if(selDay){
-    setTimeout(()=>{
-      document.getElementById('dayPanel').scrollIntoView({behavior:'smooth',block:'start'});
-    },50);
-  }
-}
 
 window.setStatus=async function(memberId,statusRaw){
   if(!selDay)return;
