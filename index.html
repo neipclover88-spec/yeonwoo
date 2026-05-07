@@ -435,16 +435,16 @@ function renderFineBar(){
 window.selectMe=function(id){myId=myId==id?'':String(id);localStorage.setItem('mm_myid',myId);selDay=null;render();};
 
 window.openEmojiForMe=function(){
-  const ALL_EMOJIS=EMOJIS.concat(['🎵','🏃','🚴','📚','💪','🌟','🦊','🐧','🌺','🍎','🏆','🎈','🐱','🐶','🐸','🦁','🐯','🦄','🍓','🍕','🎮','🎸','🌹','🌊','🔥','💫','🎀','🍀']);
+  const ALL_EMOJIS=['🍀','🌸','🐻','🌙','⭐','🎯','🦋','🌿','🔮','🐬','🎪','🌻','🎵','🏃','🚴','📚','💪','🌟','🦊','🐧','🌺','🍎','🏆','🎈','🐱','🐶','🐸','🦁','🐯','🦄','🍓','🍕','🎮','🎸','🌹','🌊','🔥','💫','🎀','👑','💎','🌈','🦅','🐉','🦋','🍄','🎭','🚀','🌙','☀️','❄️','🌺','🦚','🐝','🦜','🐠','🦈','🐙','🦊','🐺','🦝','🐨','🐼','🦘','🦔','🐲','🧸','🎃','🎄','🎆','🎇','✨','💥','🎊','🎋','🎍','🎎','🎏','🎐','🎑','🎠','🎡','🎢','💝','💖','💗','💓','💞','💕','🧡','💛','💚','💙','💜','🖤','🤍','🤎'];
   const overlay=document.createElement('div');
-  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:300;display:flex;align-items:center;justify-content:center';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:300;display:flex;align-items:flex-end;justify-content:center';
   const box=document.createElement('div');
-  box.style.cssText='background:#141726;border:1px solid #2a2f4a;border-radius:16px;padding:1.2rem;max-width:320px;width:90%';
+  box.style.cssText='background:#141726;border:1px solid #2a2f4a;border-radius:20px 20px 0 0;padding:1.2rem;width:100%;max-width:680px;max-height:70vh;overflow-y:auto';
   box.innerHTML=`<div style="font-size:0.9rem;font-weight:700;margin-bottom:12px;color:#e8eaf0">이모지 선택</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1rem">${
-      ALL_EMOJIS.map(e=>`<button onclick="window.pickMyEmoji('${e}')" style="font-size:1.4rem;width:40px;height:40px;background:#1c2035;border:1px solid #2a2f4a;border-radius:8px;cursor:pointer">${e}</button>`).join('')
+      ALL_EMOJIS.map(e=>`<button onclick="window.pickMyEmoji('${e}')" style="font-size:1.4rem;width:42px;height:42px;background:#1c2035;border:1px solid #2a2f4a;border-radius:8px;cursor:pointer">${e}</button>`).join('')
     }</div>
-    <button onclick="this.closest('.emoji-overlay').remove()" style="width:100%;padding:8px;border-radius:8px;background:transparent;color:#5a6080;border:1px solid #2a2f4a;cursor:pointer;font-family:inherit">닫기</button>`;
+    <button onclick="document.querySelector('.emoji-overlay').remove()" style="width:100%;padding:8px;border-radius:8px;background:transparent;color:#5a6080;border:1px solid #2a2f4a;cursor:pointer;font-family:inherit">닫기</button>`;
   overlay.className='emoji-overlay';
   overlay.appendChild(box);
   overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
