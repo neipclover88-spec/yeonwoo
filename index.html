@@ -327,7 +327,10 @@ function calcStats(id){
   const filled=pass+under+absent+hol;
   const fine=under*1000+absent*3000;
   const rate=filled>0?Math.round((pass+hol)/filled*100):0;
-  return{pass,under,absent,hol,fine,rate,balance:DEPOSIT-fine};
+  const mem=members.find(m=>m.id===id);
+  const totalDeposit=(mem?.deposits||[]).reduce((a,d)=>a+d.amount,0);
+  const balance=totalDeposit-fine;
+  return{pass,under,absent,hol,fine,rate,balance,totalDeposit};
 }
 
 function calcDistribution(){
@@ -378,7 +381,7 @@ function renderCalendar(){
     if(dow===0)cls+=' sun';if(dow===6)cls+=' sat';if(isTod)cls+=' today';if(hol)cls+=' holiday-day';
     cell.className=cls;
     const emojis=active.map(m=>{const s=getStatus(d,m.id)||'none';return`<span class="cal-em ${s}" title="${m.name}">${m.emoji}</span>`;}).join('');
-    cell.innerHTML=`<div class="cal-day-row">${hol?`<span class="cal-holiday">${hol}</span>`:''}<span class="cal-day">${d}</span></div><div class="cal-emojis">${emojis}</div>`;
+    cell.innerHTML=`<div class="cal-day-row"><span class="cal-day">${d}</span>${hol?`<span class="cal-holiday">${hol}</span>`:''}</div><div class="cal-emojis">${emojis}</div>`;
     const dd=d;cell.addEventListener('click',(e)=>handleCalClick(dd,e));
     grid.appendChild(cell);
   }
@@ -457,7 +460,13 @@ function renderMemberGrid(){
   document.getElementById('memberGrid').innerHTML=members.map(m=>{
     const st=calcStats(m.id);
     const myDist=m.active?(dist[m.id]||0):0;
-    const balColor=st.balance<0?'red':st.balance<DEPOSIT?'warn':'green';
+    const balColor=st.balance<0?'red':st.balance===0?'warn':'green';
+    const deposits=m.deposits||[];
+    const distributed=m.distributed||false;
+    const received=m.depositReceived||false;
+    const historyRows=deposits.map(d=>
+      '<div style="display:flex;justify-content:space-between;font-size:0.68rem;padding:3px 0;border-bottom:1px solid var(--border);color:var(--muted)"><span>'+d.date+' '+( d.note||'입금')+'</span><span style="color:'+(d.amount>0?'var(--accent)':'var(--danger)')+'">"+(d.amount>0?'+':'')+d.amount.toLocaleString()+'원</span></div>'
+    ).join('');
     return`<div class="member-card${m.active?'':' left-card'}">
       <div class="card-top">
         <div class="card-name-wrap">
@@ -468,11 +477,31 @@ function renderMemberGrid(){
       </div>
       ${confirmLeaveId===m.id?`<div class="confirm-strip"><span class="confirm-txt">탈퇴 처리할까요?</span><div class="confirm-btns"><button class="cok" onclick="window.confirmLeave(${m.id})">확인</button><button class="ccancel" onclick="window.cancelLeave()">취소</button></div></div>`:''}
       <div class="card-stats">
-        <div class="stat-box"><div class="stat-lbl">참여율</div><div class="stat-val${st.rate>=80?' green':''}">${st.rate}%</div></div>
+        <div class="stat-box"><div class="stat-lbl">참여율</div><div class="stat-val${st.rate>=80?' green':''">${st.rate}%</div></div>
         <div class="stat-box"><div class="stat-lbl">예치금 잔액</div><div class="stat-val ${balColor}">${st.balance.toLocaleString()}원</div></div>
-        <div class="stat-box"><div class="stat-lbl">휴일</div><div class="stat-val${st.hol>=5?' warn':''}">${st.hol}/6</div></div>
+        <div class="stat-box"><div class="stat-lbl">휴일</div><div class="stat-val${st.hol>=5?' warn':''">${st.hol}/6</div></div>
         <div class="stat-box"><div class="stat-lbl">분배 예상액</div><div class="stat-val green">+${myDist.toLocaleString()}원</div></div>
       </div>
+      ${isAdmin&&m.active?`
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button onclick="window.addDeposit(${m.id})" style="flex:1;padding:6px;border-radius:8px;font-size:0.75rem;font-family:'Noto Sans KR',sans-serif;cursor:pointer;background:rgba(0,229,160,0.12);color:var(--accent);border:1px solid rgba(0,229,160,0.3);font-weight:700">+ 5,000원 입금</button>
+        <button onclick="window.toggleDistributed(${m.id})" style="padding:6px 10px;border-radius:8px;font-size:0.7rem;font-family:'Noto Sans KR',sans-serif;cursor:pointer;background:${distributed?'rgba(77,150,255,0.15)':'transparent'};color:${distributed?'var(--accent2)':'var(--muted)'};border:1px solid ${distributed?'rgba(77,150,255,0.35)':'var(--border)'}">
+          ${distributed?'✓ 분배완료':'분배'}
+        </button>
+      </div>`:
+      `<button onclick="window.toggleReceived(${m.id})" style="margin-top:8px;width:100%;padding:6px;border-radius:8px;font-size:0.75rem;font-family:'Noto Sans KR',sans-serif;cursor:pointer;border:1px solid ${received?'rgba(0,229,160,0.4)':'var(--border)'};background:${received?'rgba(0,229,160,0.12)':'transparent'};color:${received?'var(--accent)':'var(--muted)'}">
+        ${received?'✅ 예치금 수령 완료':'⬜ 예치금 수령 확인'}
+      </button>`}
+      ${deposits.length>0?`
+      <div style="margin-top:6px">
+        <button onclick="window.toggleHistory(this)" style="width:100%;text-align:left;font-size:0.68rem;color:var(--muted);background:none;border:none;cursor:pointer;padding:2px 0;font-family:'Noto Sans KR',sans-serif">
+          📋 입금내역 ${deposits.length}건 ▾
+        </button>
+        <div class="deposit-history" style="display:none;margin-top:4px">
+          ${deposits.map(d=>'<div style="display:flex;justify-content:space-between;font-size:0.68rem;padding:3px 0;border-bottom:1px solid #2a2f4a;color:#5a6080"><span>'+d.date+' '+(d.note||'입금')+'</span><span style="color:'+(d.amount>0?'#00e5a0':'#ff6b6b')+'">'+(d.amount>0?'+':'')+d.amount.toLocaleString()+'원</span></div>').join('')}
+          <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:4px 0;color:var(--text);font-weight:500"><span>총 입금</span><span style="color:var(--accent)">${st.totalDeposit.toLocaleString()}원</span></div>
+        </div>
+      </div>`:''}
     </div>`;
   }).join('');
 }
@@ -518,6 +547,33 @@ window.setStatus=async function(memberId,statusRaw){
   await saveStatus(curYear,curMonth,selDay,memberId,statusRaw===''?null:statusRaw);
 };
 
+window.toggleReceived=async function(id){
+  members=members.map(m=>m.id===id?{...m,depositReceived:!m.depositReceived}:m);
+  await saveMembers();
+};
+
+window.addDeposit=async function(id){
+  const today=new Date();
+  const date=`${today.getMonth()+1}/${today.getDate()}`;
+  members=members.map(m=>{
+    if(m.id!==id)return m;
+    const deposits=[...(m.deposits||[]),{date,amount:5000,note:'입금'}];
+    return{...m,deposits};
+  });
+  await saveMembers();
+};
+
+window.toggleDistributed=async function(id){
+  members=members.map(m=>m.id===id?{...m,distributed:!m.distributed}:m);
+  await saveMembers();
+};
+
+window.toggleHistory=function(btn){
+  const history=btn.nextElementSibling;
+  const isOpen=history.style.display!=='none';
+  history.style.display=isOpen?'none':'block';
+  btn.textContent=btn.textContent.replace(isOpen?'▴':'▾',isOpen?'▾':'▴');
+};
 window.startLeave=function(id){confirmLeaveId=id;render();};
 window.cancelLeave=function(){confirmLeaveId=null;render();};
 window.confirmLeave=async function(id){
