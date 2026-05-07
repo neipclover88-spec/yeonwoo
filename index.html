@@ -289,9 +289,9 @@ function setSyncStatus(ok){
 function subscribeMembers(){
   onSnapshot(doc(db,'miraclemorning','_members'),(snap)=>{
     members=snap.exists()?(snap.data().members||[]):[];
-    render();
     document.getElementById('loadingOverlay').classList.add('hidden');
     setSyncStatus(true);
+    try{render();}catch(e){console.error('render error:',e);}
   },(e)=>{setSyncStatus(false);document.getElementById('loadingOverlay').classList.add('hidden');});
 }
 
@@ -465,7 +465,7 @@ function renderMemberGrid(){
     const distributed=m.distributed||false;
     const received=m.depositReceived||false;
     const historyRows=deposits.map(d=>
-      '<div style="display:flex;justify-content:space-between;font-size:0.68rem;padding:3px 0;border-bottom:1px solid var(--border);color:var(--muted)"><span>'+d.date+' '+( d.note||'입금')+'</span><span style="color:'+(d.amount>0?'var(--accent)':'var(--danger)')+'">"+(d.amount>0?'+':'')+d.amount.toLocaleString()+'원</span></div>'
+      `<div style="display:flex;justify-content:space-between;font-size:0.68rem;padding:3px 0;border-bottom:1px solid #2a2f4a;color:#5a6080"><span>${d.date} ${d.note||'입금'}</span><span style="color:${d.amount>0?'#00e5a0':'#ff6b6b'}">${d.amount>0?'+':''}${d.amount.toLocaleString()}원</span></div>`
     ).join('');
     return`<div class="member-card${m.active?'':' left-card'}">
       <div class="card-top">
@@ -477,9 +477,9 @@ function renderMemberGrid(){
       </div>
       ${confirmLeaveId===m.id?`<div class="confirm-strip"><span class="confirm-txt">탈퇴 처리할까요?</span><div class="confirm-btns"><button class="cok" onclick="window.confirmLeave(${m.id})">확인</button><button class="ccancel" onclick="window.cancelLeave()">취소</button></div></div>`:''}
       <div class="card-stats">
-        <div class="stat-box"><div class="stat-lbl">참여율</div><div class="stat-val${st.rate>=80?' green':''">${st.rate}%</div></div>
+        <div class="stat-box"><div class="stat-lbl">참여율</div><div class="stat-val${st.rate>=80?' green':''}">${st.rate}%</div></div>
         <div class="stat-box"><div class="stat-lbl">예치금 잔액</div><div class="stat-val ${balColor}">${st.balance.toLocaleString()}원</div></div>
-        <div class="stat-box"><div class="stat-lbl">휴일</div><div class="stat-val${st.hol>=5?' warn':''">${st.hol}/6</div></div>
+        <div class="stat-box"><div class="stat-lbl">휴일</div><div class="stat-val${st.hol>=5?' warn':''}">${st.hol}/6</div></div>
         <div class="stat-box"><div class="stat-lbl">분배 예상액</div><div class="stat-val green">+${myDist.toLocaleString()}원</div></div>
       </div>
       ${isAdmin&&m.active?`
