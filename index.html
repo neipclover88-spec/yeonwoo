@@ -346,9 +346,12 @@ function render(){
 
 function renderNameGrid(){
   const active=members.filter(m=>m.active);
-  document.getElementById('nameGrid').innerHTML=active.map(m=>
-    `<div class="name-chip${m.id==myId?' selected':''}" onclick="selectMe(${m.id})"><span class="chip-emoji">${m.emoji}</span>${m.name}</div>`
-  ).join('');
+  document.getElementById('nameGrid').innerHTML=active.map(m=>`
+    <div style="display:flex;align-items:center;gap:3px">
+      <div class="name-chip${m.id==myId?' selected':''}" onclick="selectMe(${m.id})"><span class="chip-emoji">${m.emoji}</span>${m.name}</div>
+      ${m.id==myId?`<button onclick="window.openEmojiForMe()" style="background:none;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:0.7rem;padding:3px 6px;color:var(--muted)">✏️</button>`:''}
+    </div>
+  `).join('');
   const me=memberById(parseInt(myId));
   const info=document.getElementById('selectedInfo');
   if(me&&me.active){info.classList.add('show');document.getElementById('selectedInfoText').textContent=`${me.emoji} ${me.name}`;}
@@ -378,12 +381,13 @@ function renderCalendar(){
 
 function renderDayPanel(){
   const panel=document.getElementById('dayPanel');
-  if(!isAdmin||!selDay){panel.classList.remove('show');return;}
+  if(!selDay){panel.classList.remove('show');return;}
   panel.classList.add('show');
   document.getElementById('dayPanelTitle').textContent=`${curMonth+1}월 ${selDay}일 인증 입력`;
   const active=members.filter(m=>m.active);
+  const showMembers=isAdmin?active:active.filter(m=>m.id==myId);
   const STATUSES=[{k:null,l:'—',c:'clear'},{k:'pass',l:'인증',c:'pass'},{k:'under',l:'미달',c:'under'},{k:'absent',l:'결석',c:'absent'},{k:'holiday',l:'휴일',c:'holiday'}];
-  document.getElementById('dayPanelRows').innerHTML=active.map(m=>{
+  document.getElementById('dayPanelRows').innerHTML=showMembers.map(m=>{
     const cur=getStatus(selDay,m.id)||null;
     return`<div class="day-row"><span class="day-row-name"><span>${m.emoji}</span>${m.name}</span><div class="status-btns">${
       STATUSES.map(({k,l,c})=>`<button class="s-btn ${c}${cur===k?' active':''}" onclick="window.setStatus(${m.id},'${k||''}')">${l}</button>`).join('')
@@ -430,13 +434,37 @@ function renderFineBar(){
 // ── 이벤트 핸들러 ─────────────────────────────────
 window.selectMe=function(id){myId=myId==id?'':String(id);localStorage.setItem('mm_myid',myId);selDay=null;render();};
 
+window.openEmojiForMe=function(){
+  const ALL_EMOJIS=EMOJIS.concat(['🎵','🏃','🚴','📚','💪','🌟','🦊','🐧','🌺','🍎','🏆','🎈','🐱','🐶','🐸','🦁','🐯','🦄','🍓','🍕','🎮','🎸','🌹','🌊','🔥','💫','🎀','🍀']);
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:300;display:flex;align-items:center;justify-content:center';
+  const box=document.createElement('div');
+  box.style.cssText='background:#141726;border:1px solid #2a2f4a;border-radius:16px;padding:1.2rem;max-width:320px;width:90%';
+  box.innerHTML=`<div style="font-size:0.9rem;font-weight:700;margin-bottom:12px;color:#e8eaf0">이모지 선택</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1rem">${
+      ALL_EMOJIS.map(e=>`<button onclick="window.pickMyEmoji('${e}')" style="font-size:1.4rem;width:40px;height:40px;background:#1c2035;border:1px solid #2a2f4a;border-radius:8px;cursor:pointer">${e}</button>`).join('')
+    }</div>
+    <button onclick="this.closest('.emoji-overlay').remove()" style="width:100%;padding:8px;border-radius:8px;background:transparent;color:#5a6080;border:1px solid #2a2f4a;cursor:pointer;font-family:inherit">닫기</button>`;
+  overlay.className='emoji-overlay';
+  overlay.appendChild(box);
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
+  document.body.appendChild(overlay);
+};
+
+window.pickMyEmoji=async function(emoji){
+  members=members.map(m=>m.id==myId?{...m,emoji}:m);
+  await saveMembers();
+  document.querySelector('.emoji-overlay')?.remove();
+  render();
+};
+
 async function handleCalClick(day){
   if(isAdmin){selDay=selDay===day?null:day;render();return;}
   if(!myId){alert('먼저 위에서 내 이름을 선택해주세요!');return;}
   const me=memberById(parseInt(myId));
   if(!me||!me.active)return;
-  const cur=getStatus(day,me.id);
-  await saveStatus(curYear,curMonth,day,me.id,cur==='pass'?null:'pass');
+  selDay=selDay===day?null:day;
+  render();
 }
 
 window.setStatus=async function(memberId,statusRaw){
