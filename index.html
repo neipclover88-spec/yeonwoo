@@ -465,6 +465,11 @@ async function handleCalClick(day){
   if(!me||!me.active)return;
   selDay=selDay===day?null:day;
   render();
+  if(selDay){
+    setTimeout(()=>{
+      document.getElementById('dayPanel').scrollIntoView({behavior:'smooth',block:'start'});
+    },50);
+  }
 }
 
 window.setStatus=async function(memberId,statusRaw){
