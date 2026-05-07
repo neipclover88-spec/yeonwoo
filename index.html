@@ -392,9 +392,10 @@ function closePopup(){ document.querySelector('.status-popup')?.remove(); }
 
 function showStatusPopup(day, rect){
   closePopup();
-  const me = isAdmin ? null : memberById(parseInt(myId));
-  const showMembers = isAdmin ? members.filter(m=>m.active) : (me ? [me] : []);
-  if(!showMembers.length) return;
+  if(!myId){alert('먼저 위에서 내 이름을 선택해주세요!');return;}
+  const me=memberById(parseInt(myId));
+  if(!me||!me.active)return;
+  const showMembers=[me];
 
   const popup = document.createElement('div');
   popup.className = 'status-popup';
@@ -499,7 +500,7 @@ function renderMemberGrid(){
           📋 입금내역 ${deposits.length}건 ▾
         </button>
         <div class="deposit-history" style="display:none;margin-top:4px">
-          ${deposits.map(d=>'<div style="display:flex;justify-content:space-between;font-size:0.68rem;padding:3px 0;border-bottom:1px solid #2a2f4a;color:#5a6080"><span>'+d.date+' '+(d.note||'입금')+'</span><span style="color:'+(d.amount>0?'#00e5a0':'#ff6b6b')+'">'+(d.amount>0?'+':'')+d.amount.toLocaleString()+'원</span></div>').join('')}
+          ${deposits.map((d,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;font-size:0.68rem;padding:3px 0;border-bottom:1px solid #2a2f4a;color:#5a6080"><span>${d.date} ${d.note||'입금'}</span><div style="display:flex;align-items:center;gap:6px"><span style="color:${d.amount>0?'#00e5a0':'#ff6b6b'}">${d.amount>0?'+':''}${d.amount.toLocaleString()}원</span>${isAdmin?`<button onclick="window.removeDeposit(${m.id},${i})" style="font-size:0.6rem;padding:1px 5px;border-radius:4px;background:transparent;color:#ff6b6b;border:1px solid rgba(255,107,107,0.3);cursor:pointer">삭제</button>`:''}</div></div>`).join('')}
           <div style="display:flex;justify-content:space-between;font-size:0.7rem;padding:4px 0;color:var(--text);font-weight:500"><span>총 입금</span><span style="color:var(--accent)">${st.totalDeposit.toLocaleString()}원</span></div>
         </div>
       </div>`:''}
@@ -550,6 +551,17 @@ window.setStatus=async function(memberId,statusRaw){
 
 window.toggleReceived=async function(id){
   members=members.map(m=>m.id===id?{...m,depositReceived:!m.depositReceived}:m);
+  await saveMembers();
+};
+
+window.removeDeposit=async function(id,index){
+  if(!confirm('이 입금 내역을 삭제할까요?'))return;
+  members=members.map(m=>{
+    if(m.id!==id)return m;
+    const deposits=[...(m.deposits||[])];
+    deposits.splice(index,1);
+    return{...m,deposits};
+  });
   await saveMembers();
 };
 
