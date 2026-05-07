@@ -328,7 +328,8 @@ function calcStats(id){
   const fine=under*1000+absent*3000;
   const rate=filled>0?Math.round((pass+hol)/filled*100):0;
   const mem=members.find(m=>m.id===id);
-  const totalDeposit=(mem?.deposits||[]).reduce((a,d)=>a+d.amount,0);
+  const deposits=mem?.deposits||[];
+  const totalDeposit=deposits.length>0?deposits.reduce((a,d)=>a+d.amount,0):DEPOSIT;
   const balance=totalDeposit-fine;
   return{pass,under,absent,hol,fine,rate,balance,totalDeposit};
 }
