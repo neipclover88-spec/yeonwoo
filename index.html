@@ -395,12 +395,6 @@ function showStatusPopup(day, rect){
   const popup = document.createElement('div');
   popup.className = 'status-popup';
 
-  // 팝업 위치 계산
-  const top = rect.bottom + window.scrollY + 6;
-  const left = Math.min(rect.left, window.innerWidth - 200);
-  popup.style.top = top + 'px';
-  popup.style.left = Math.max(8, left) + 'px';
-
   const STATUSES = [{k:null,l:'— 없음',c:'clear'},{k:'pass',l:'✓ 인증',c:'pass'},{k:'under',l:'! 미달',c:'under'},{k:'absent',l:'✕ 결석',c:'absent'},{k:'holiday',l:'휴 휴일',c:'holiday'}];
 
   popup.innerHTML = showMembers.map(m => {
@@ -414,9 +408,25 @@ function showStatusPopup(day, rect){
     </div>`;
   }).join('');
 
+  // 뷰포트 기준 fixed 위치 계산
   document.body.appendChild(popup);
+  const popupW = 190;
+  const popupH = popup.offsetHeight || 200;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
 
-  // 바깥 클릭시 닫기
+  let top = rect.bottom + 6;
+  let left = rect.left;
+
+  // 아래 공간 부족하면 위로
+  if(top + popupH > vh - 10) top = rect.top - popupH - 6;
+  // 오른쪽 잘리면 왼쪽으로
+  if(left + popupW > vw - 8) left = vw - popupW - 8;
+  if(left < 8) left = 8;
+
+  popup.style.top = top + 'px';
+  popup.style.left = left + 'px';
+
   setTimeout(()=>{
     document.addEventListener('click', function handler(e){
       if(!popup.contains(e.target)){popup.remove();document.removeEventListener('click',handler);}
