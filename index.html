@@ -337,11 +337,17 @@ function calcStats(id){
 function calcDistribution(){
   const active=members.filter(m=>m.active);
   const totalFine=active.reduce((a,m)=>a+calcStats(m.id).fine,0);
-  const totalRate=active.reduce((a,m)=>a+calcStats(m.id).rate,0);
+  const totalPass=active.reduce((a,m)=>a+calcStats(m.id).pass,0);
   const dist={};
-  active.forEach(m=>{const st=calcStats(m.id);dist[m.id]=totalRate>0?Math.round(totalFine*(st.rate/totalRate)):0;});
+  active.forEach(m=>{
+    const st=calcStats(m.id);
+    dist[m.id]=totalPass>0?Math.round(totalFine*(st.pass/totalPass)):0;
+  });
   const diff=totalFine-Object.values(dist).reduce((a,b)=>a+b,0);
-  if(diff!==0&&active.length>0){const topId=active.reduce((a,b)=>calcStats(a.id).rate>=calcStats(b.id).rate?a:b).id;dist[topId]=(dist[topId]||0)+diff;}
+  if(diff!==0&&active.length>0){
+    const topId=active.reduce((a,b)=>calcStats(a.id).pass>=calcStats(b.id).pass?a:b).id;
+    dist[topId]=(dist[topId]||0)+diff;
+  }
   return{totalFine,dist};
 }
 
@@ -482,7 +488,7 @@ function renderMemberGrid(){
         <div class="stat-box"><div class="stat-lbl">참여율</div><div class="stat-val${st.rate>=80?' green':''}">${st.rate}%</div></div>
         <div class="stat-box"><div class="stat-lbl">예치금 잔액</div><div class="stat-val ${balColor}">${st.balance.toLocaleString()}원</div></div>
         <div class="stat-box"><div class="stat-lbl">휴일</div><div class="stat-val${st.hol>=5?' warn':''}">${st.hol}/6</div></div>
-        <div class="stat-box"><div class="stat-lbl">분배 예상액</div><div class="stat-val green">+${myDist.toLocaleString()}원</div></div>
+        <div class="stat-box"><div class="stat-lbl">분배 예상액 (인증일 기준)</div><div class="stat-val green">+${myDist.toLocaleString()}원</div></div>
       </div>
       ${isAdmin&&m.active?`
       <div style="display:flex;gap:6px;margin-top:8px">
