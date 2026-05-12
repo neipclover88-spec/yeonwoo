@@ -57,8 +57,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .cal-day-row{display:flex;align-items:center;justify-content:space-between;width:100%;gap:2px}
 .cal-day{font-size:0.82rem;font-weight:700;line-height:1;flex-shrink:0}
 .cal-holiday{font-size:0.42rem;color:#ff6b6b88;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;text-align:left;line-height:1}
-.cal-emojis{display:grid;gap:2px;margin-top:2px;width:100%}
-.cal-em{font-size:0.85rem;border-radius:50%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;position:relative;border:2px solid transparent}
+.cal-emojis{display:flex;flex-wrap:wrap;justify-content:center;gap:2px;margin-top:3px;width:100%}
+.cal-em{font-size:0.75rem;border-radius:50%;width:20px;height:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative;border:2px solid transparent}
 .cal-em.pass{border-color:var(--accent);background:rgba(0,229,160,0.1)}
 .cal-em.under{border-color:var(--warn);background:rgba(251,191,36,0.1)}
 .cal-em.absent{border-color:var(--danger);background:rgba(255,107,107,0.1)}
@@ -380,7 +380,6 @@ function renderCalendar(){
   const active=members.filter(m=>m.active);
   const cnt=active.length;
   const cols=cnt<=3?cnt:(cnt===4?2:3);
-  const gridCols=`repeat(${cols},1fr)`;
   for(let i=0;i<fd;i++){const c=document.createElement('div');c.className='cal-cell empty';grid.appendChild(c);}
   for(let d=1;d<=dim;d++){
     const dow=new Date(curYear,curMonth,d).getDay();
@@ -391,7 +390,7 @@ function renderCalendar(){
     if(dow===0)cls+=' sun';if(dow===6)cls+=' sat';if(isTod)cls+=' today';if(hol)cls+=' holiday-day';
     cell.className=cls;
     const emojis=active.map(m=>{const s=getStatus(d,m.id)||'none';return`<span class="cal-em ${s}" title="${m.name}">${m.emoji}</span>`;}).join('');
-    cell.innerHTML=`<div class="cal-day-row"><span class="cal-day">${d}</span>${hol?`<span class="cal-holiday">${hol}</span>`:''}</div><div class="cal-emojis" style="grid-template-columns:${gridCols}">${emojis}</div>`;
+    cell.innerHTML=`<div class="cal-day-row"><span class="cal-day">${d}</span>${hol?`<span class="cal-holiday">${hol}</span>`:''}</div><div class="cal-emojis">${emojis}</div>`;
     const dd=d;cell.addEventListener('click',(e)=>handleCalClick(dd,e));
     grid.appendChild(cell);
   }
