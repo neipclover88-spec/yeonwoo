@@ -25,7 +25,14 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:0.8rem}
 .loading-txt{font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted)}
 @keyframes spin{to{transform:rotate(360deg)}}
-.admin-toggle{font-size:0.72rem;padding:0.2rem 0.7rem;border-radius:100px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all 0.15s}
+.plan-btn{font-size:0.72rem;padding:0.2rem 0.7rem;border-radius:100px;border:1px solid rgba(245,200,30,.35);background:rgba(245,200,30,.08);color:#ffd93d;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all 0.15s}
+.plan-btn:hover{background:rgba(245,200,30,.15)}
+.plan-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:300;align-items:center;justify-content:center}
+.plan-overlay.show{display:flex}
+.plan-card{background:#0e1320;border:1px solid rgba(245,200,30,.3);border-radius:16px;width:340px;max-width:92vw;max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+.plan-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.plan-body{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.plan-item-row{display:flex;align-items:center;gap:6px;border-radius:7px;padding:5px 8px;touch-action:none;user-select:none;cursor:grab}
 .admin-toggle.on{color:var(--accent3);background:rgba(255,217,61,0.1);border-color:rgba(255,217,61,0.3)}
 .main{max-width:680px;margin:0 auto;padding:1.2rem 1rem}
 .name-section{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1rem 1.2rem;margin-bottom:1.2rem}
@@ -152,6 +159,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .ep-btn{font-size:1.1rem;background:none;border:1px solid transparent;border-radius:6px;cursor:pointer;width:32px;height:32px;display:flex;align-items:center;justify-content:center}
 .ep-btn:hover,.ep-btn.sel{border-color:var(--accent);background:rgba(0,229,160,0.1)}
 </style>
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 </head>
 <body>
 <div class="loading-overlay" id="loadingOverlay">
@@ -166,6 +174,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
     <button class="month-btn" id="nextBtn">›</button>
   </div>
   <div style="display:flex;align-items:center;gap:0.5rem">
+    <button class="plan-btn" id="planBtn">✅ 오늘 할 일</button>
     <button class="setup-btn" id="setupBtn">⚙ 멤버 설정</button>
     <button class="admin-toggle" id="adminToggle">관리자</button>
     <span class="sync-badge" id="syncBadge">연결 중...</span>
@@ -181,6 +190,23 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
     <div class="member-edit-list" id="memberEditList"></div>
     <button class="modal-add-btn" id="modalAddBtn">+ 멤버 추가</button>
     <button class="modal-save-btn" id="modalSaveBtn">저장하기</button>
+  </div>
+</div>
+
+<!-- 오늘 할 일 모달 -->
+<div class="plan-overlay" id="planOverlay" onclick="if(event.target===this)closePlan()">
+  <div class="plan-card" id="planCard">
+    <div class="plan-hdr">
+      <div>
+        <div style="font-size:0.85rem;font-weight:700;color:#ffd93d">✅ 오늘 해야 할 일</div>
+        <div id="planDateLabel" style="font-size:1rem;font-weight:700;margin-top:2px"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button onclick="capturePlan()" title="저장" style="background:rgba(245,200,30,.12);border:1px solid rgba(245,200,30,.3);color:#ffd93d;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center">📷</button>
+        <button onclick="closePlan()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button>
+      </div>
+    </div>
+    <div class="plan-body" id="planBody"></div>
   </div>
 </div>
 
@@ -273,6 +299,291 @@ let members=[], monthData={};
 let myId=localStorage.getItem('mm_myid')||'';
 let isAdmin=false, selDay=null, confirmLeaveId=null, showAddForm=false;
 let unsubMonth=null;
+
+// ── 오늘 할 일 상태 ──────────────────────────────
+let planDb={};        // 이번 달 전체 플랜 데이터
+let unsubPlan=null;
+const PLAN_FINE=500;  // 목표 미달성 1개당 벌금
+const PLAN_TARGET=3;  // 목표 달성 기준
+
+function todayStr(){
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function planDocId(y,m){return `plan_${y}_${String(m+1).padStart(2,'0')}`;}
+function genPlanId(){return 'p'+Date.now()+Math.floor(Math.random()*10000);}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function getPlanForDate(dateStr){
+  return planDb[dateStr]||{items:[],isRest:false,isSpecialRest:false};
+}
+
+function calcPlanStatus(dateStr){
+  const dp=getPlanForDate(dateStr);
+  const total=dp.items.length;
+  const achieved=dp.items.filter(i=>i.done).length;
+  const failed=dp.items.filter(i=>i.fail).length;
+  const isOff=dp.isRest||dp.isSpecialRest;
+  const fine=isOff?0:Math.max(0,PLAN_TARGET-achieved)*PLAN_FINE;
+  return{total,achieved,failed,fine,isOff,isRest:dp.isRest,isSpecialRest:dp.isSpecialRest};
+}
+
+function calcRestUsage(dateStr){
+  const [y,m]=dateStr.split('-').map(Number);
+  const ym=`${y}-${String(m).padStart(2,'0')}`;
+  const keys=Object.keys(planDb).filter(k=>k.startsWith(ym));
+  // 이번 주 (월~일) 휴무 횟수
+  const d=new Date(dateStr);
+  const dow=d.getDay();
+  const diffToMon=dow===0?-6:1-dow;
+  const mon=new Date(d.getFullYear(),d.getMonth(),d.getDate()+diffToMon);
+  const weekKeys=Array.from({length:7},(_,i)=>{
+    const x=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+i);
+    return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
+  });
+  const weekUsed=weekKeys.filter(k=>planDb[k]?.isRest).length;
+  const monthUsed=keys.filter(k=>planDb[k]?.isSpecialRest).length;
+  const monthSpecialDates=keys.filter(k=>planDb[k]?.isSpecialRest);
+  return{weekUsed,weekLimit:2,monthUsed,monthLimit:2,monthSpecialDates};
+}
+
+async function savePlan(dateStr,data){
+  planDb[dateStr]=data;
+  const [y,m]=dateStr.split('-').map(Number);
+  await setDoc(doc(db,'miraclemorning',planDocId(y,m-1)),planDb);
+}
+
+function subscribePlan(){
+  if(unsubPlan)unsubPlan();
+  const now2=new Date();
+  unsubPlan=onSnapshot(doc(db,'miraclemorning',planDocId(now2.getFullYear(),now2.getMonth())),(snap)=>{
+    planDb=snap.exists()?snap.data():{};
+    if(document.getElementById('planOverlay')?.classList.contains('show')) renderPlanBody();
+  });
+}
+
+// ── 오늘 할 일 모달 ──────────────────────────────
+function openPlan(){
+  const today=todayStr();
+  const[y,m,d]=today.split('-').map(Number);
+  const days=['일','월','화','수','목','금','토'];
+  const dt=new Date(y,m-1,d);
+  const dayClr=dt.getDay()===0?'#ff6b6b':dt.getDay()===6?'#4d96ff':'var(--muted)';
+  document.getElementById('planDateLabel').innerHTML=
+    `<span style="color:var(--text)">${m}월 ${d}일</span> <span style="color:${dayClr}">${days[dt.getDay()]}요일</span>`;
+  document.getElementById('planOverlay').classList.add('show');
+  renderPlanBody();
+}
+
+function closePlan(){document.getElementById('planOverlay').classList.remove('show');}
+
+function renderPlanBody(){
+  const today=todayStr();
+  const dp=getPlanForDate(today);
+  const ps=calcPlanStatus(today);
+  const ru=calcRestUsage(today);
+  const fineClr=ps.fine>0?'#ff6b6b':'#00e5a0';
+  let b='';
+
+  // 휴무/특휴 토글
+  b+=`<div style="background:linear-gradient(135deg,rgba(245,200,30,.1),rgba(245,200,30,.03));border:1px solid rgba(245,200,30,.25);border-radius:10px;padding:10px 12px">
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <button onclick="togglePlanRest('isRest')" style="flex:1;background:${dp.isRest?'rgba(127,179,224,.2)':'var(--surface2)'};border:1px solid ${dp.isRest?'#4d96ff':'var(--border)'};color:${dp.isRest?'#4d96ff':'var(--muted)'};border-radius:7px;padding:6px 0;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif">😌 휴무 ${dp.isRest?'✓':''}</button>
+      <button onclick="togglePlanRest('isSpecialRest')" style="flex:1;background:${dp.isSpecialRest?'rgba(168,85,247,.2)':'var(--surface2)'};border:1px solid ${dp.isSpecialRest?'#a855f7':'var(--border)'};color:${dp.isSpecialRest?'#a855f7':'var(--muted)'};border-radius:7px;padding:6px 0;font-size:0.8rem;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif">🎁 특휴 ${dp.isSpecialRest?'✓':''}</button>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted)">
+      <span>이번주 휴무 <b style="color:${ru.weekUsed>=ru.weekLimit?'#ff6b6b':'var(--text)'}">${ru.weekUsed}/${ru.weekLimit}</b></span>
+      <span>이번달 특휴 <b style="color:${ru.monthUsed>=ru.monthLimit?'#ff6b6b':'var(--text)'}">${ru.monthUsed}/${ru.monthLimit}</b></span>
+    </div>
+  </div>`;
+
+  if(!dp.isRest&&!dp.isSpecialRest){
+    // 할 일 목록
+    b+=`<div style="display:flex;flex-direction:column;gap:4px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:0.72rem;color:var(--muted)">오늘 목표 (${dp.items.length}개)</span>
+        <span style="font-size:0.65rem;color:var(--muted)">탭=체크 · ✗=못함 · ✕=제거</span>
+      </div>
+      <div id="planItemList" style="display:flex;flex-direction:column;gap:4px">
+      ${dp.items.map(it=>{
+        const isDone=!!it.done, isFail=!!it.fail;
+        const bg=isDone?'rgba(0,229,160,.08)':isFail?'rgba(255,107,107,.08)':'rgba(255,255,255,.02)';
+        const border=isDone?'rgba(0,229,160,.2)':isFail?'rgba(255,107,107,.2)':'var(--border)';
+        const textClr=isDone?'#00e5a0':isFail?'rgba(255,107,107,.5)':'var(--text)';
+        const deco=isDone||isFail?'line-through':'none';
+        return `<div class="plan-item-row" data-id="${it.id}" style="background:${bg};border:1px solid ${border}">
+          <div data-check="${it.id}" style="width:18px;height:18px;border-radius:50%;border:2px solid ${isDone?'#00e5a0':isFail?'rgba(255,107,107,.3)':'var(--muted)'};background:${isDone?'#00e5a0':'none'};display:flex;align-items:center;justify-content:center;font-size:10px;color:#0d0f1a;flex-shrink:0">${isDone?'✓':''}</div>
+          <span style="flex:1;font-size:0.82rem;color:${textClr};text-decoration:${deco};line-height:1.3">${esc(it.name)}</span>
+          <button data-fail="${it.id}" style="width:18px;height:18px;border-radius:50%;border:1.5px solid ${isFail?'#ff6b6b':'var(--muted)'};background:${isFail?'#ff6b6b':'none'};color:${isFail?'#fff':'var(--muted)'};font-size:9px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">✗</button>
+          <button data-del="${it.id}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:9px;padding:0;opacity:.4;flex-shrink:0">✕</button>
+        </div>`;
+      }).join('')||'<div style="font-size:0.8rem;color:var(--muted);padding:4px 0">할 일을 추가해보세요</div>'}
+      </div>
+      <div style="display:flex;gap:4px;margin-top:2px">
+        <input id="planItemInp" type="text" placeholder="할 일 추가..." style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:0.82rem;padding:6px 9px;outline:none;font-family:'Noto Sans KR',sans-serif" onkeydown="if(event.key==='Enter')addPlanItem()">
+        <button onclick="addPlanItem()" style="background:rgba(245,200,30,.15);border:1px solid rgba(245,200,30,.4);color:#ffd93d;border-radius:7px;padding:0 14px;cursor:pointer;font-size:1rem;font-weight:700">+</button>
+      </div>
+    </div>`;
+
+    // 클로버 시각화
+    b+=`<div style="background:var(--surface2);border-radius:10px;padding:12px 14px;text-align:center">
+      <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-bottom:8px">
+        ${dp.items.map(it=>{
+          if(it.done)return`<span style="font-size:2rem;line-height:1;filter:drop-shadow(0 0 6px #00e5a088)">🍀</span>`;
+          if(it.fail)return`<span style="font-size:2rem;line-height:1;filter:grayscale(1) sepia(1) saturate(3) hue-rotate(300deg);opacity:.6">🍀</span>`;
+          return`<span style="font-size:2rem;line-height:1;opacity:.18;filter:grayscale(1)">🍀</span>`;
+        }).join('')}
+      </div>
+      <div style="font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:700;color:#ffd93d">${ps.achieved}/${ps.total} 달성${ps.failed>0?` · <span style="color:#ff6b6b">✗${ps.failed}</span>`:''}</div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:0.72rem;color:var(--muted)">오늘 벌금</span>
+        <span style="font-family:'DM Mono',monospace;font-size:1.1rem;color:${fineClr};font-weight:700">${ps.fine>0?'₩'+ps.fine.toLocaleString():'없음 🎉'}</span>
+      </div>
+      ${ps.fine>0?`<div style="font-size:0.65rem;color:#ff6b6b88;margin-top:3px;text-align:right">미달성 ${PLAN_TARGET-ps.achieved}개 × ${PLAN_FINE.toLocaleString()}원</div>`:''}
+    </div>`;
+  } else {
+    // 휴무/특휴 화면
+    const isSpecial=dp.isSpecialRest;
+    b+=`<div style="display:flex;flex-direction:column;align-items:center;padding:20px 0">
+      <div style="font-size:4rem;margin-bottom:12px">${isSpecial?'🌟':'😌'}</div>
+      <div style="font-size:1.2rem;font-weight:700;color:#00e5a0">${isSpecial?'특별 휴가':'오늘은 휴무!'}</div>
+      <div style="font-size:0.8rem;color:var(--muted);margin-top:4px">${isSpecial?'충전하고 돌아와요':'푹 쉬어가요'}</div>
+    </div>`;
+  }
+
+  document.getElementById('planBody').innerHTML=b;
+  initPlanDrag();
+}
+
+function togglePlanRest(field){
+  const today=todayStr();
+  const dp=JSON.parse(JSON.stringify(getPlanForDate(today)));
+  dp[field]=!dp[field];
+  if(field==='isRest'&&dp.isRest) dp.isSpecialRest=false;
+  if(field==='isSpecialRest'&&dp.isSpecialRest) dp.isRest=false;
+  savePlan(today,dp).then(()=>renderPlanBody());
+}
+
+function togglePlanItem(id){
+  const today=todayStr();
+  const dp=JSON.parse(JSON.stringify(getPlanForDate(today)));
+  const it=dp.items.find(i=>i.id===id);
+  if(it){it.done=!it.done;if(it.done)it.fail=false;}
+  savePlan(today,dp).then(()=>renderPlanBody());
+}
+function failPlanItem(id){
+  const today=todayStr();
+  const dp=JSON.parse(JSON.stringify(getPlanForDate(today)));
+  const it=dp.items.find(i=>i.id===id);
+  if(it){it.fail=!it.fail;if(it.fail)it.done=false;}
+  savePlan(today,dp).then(()=>renderPlanBody());
+}
+function addPlanItem(){
+  const inp=document.getElementById('planItemInp');
+  const name=inp?.value.trim();
+  if(!name)return;
+  const today=todayStr();
+  const dp=JSON.parse(JSON.stringify(getPlanForDate(today)));
+  dp.items.push({id:genPlanId(),name,done:false});
+  inp.value='';
+  savePlan(today,dp).then(()=>renderPlanBody());
+}
+function delPlanItem(id){
+  const today=todayStr();
+  const dp=JSON.parse(JSON.stringify(getPlanForDate(today)));
+  dp.items=dp.items.filter(i=>i.id!==id);
+  savePlan(today,dp).then(()=>renderPlanBody());
+}
+
+function capturePlan(){
+  const target=document.getElementById('planCard');
+  if(!target||typeof html2canvas==='undefined')return;
+  const btns=document.querySelector('.plan-hdr').querySelector('div:last-child');
+  btns.style.display='none';
+  html2canvas(target,{backgroundColor:'#0e1320',scale:2,useCORS:true}).then(canvas=>{
+    btns.style.display='';
+    const link=document.createElement('a');
+    link.download=`오늘할일_${todayStr()}.png`;
+    link.href=canvas.toDataURL('image/png');
+    link.click();
+  }).catch(e=>{btns.style.display='';console.error(e);});
+}
+
+// ── 드래그 순서 변경 ──────────────────────────────
+function initPlanDrag(){
+  const list=document.getElementById('planItemList');
+  if(!list)return;
+  list.querySelectorAll('.plan-item-row').forEach(row=>{
+    row.onpointerdown=(e)=>{
+      const checkEl=row.querySelector('[data-check]');
+      const failEl=row.querySelector('[data-fail]');
+      const delEl=row.querySelector('[data-del]');
+      if(e.target===failEl){failPlanItem(failEl.dataset.fail);return;}
+      if(e.target===delEl){delPlanItem(delEl.dataset.del);return;}
+      let timer=setTimeout(()=>{timer=null;startPlanDrag(e,row,list);},150);
+      const onup=()=>{
+        row.removeEventListener('pointerup',onup);
+        row.removeEventListener('pointermove',onmove);
+        if(timer!==null){
+          clearTimeout(timer);
+          if(!e.target.closest('button')) togglePlanItem(checkEl.dataset.check);
+        }
+      };
+      const onmove=(ev)=>{
+        if((Math.abs(ev.clientX-e.clientX)>6||Math.abs(ev.clientY-e.clientY)>6)&&timer!==null){
+          clearTimeout(timer);timer=null;
+          row.removeEventListener('pointerup',onup);
+          row.removeEventListener('pointermove',onmove);
+          startPlanDrag(e,row,list);
+        }
+      };
+      row.addEventListener('pointerup',onup);
+      row.addEventListener('pointermove',onmove);
+    };
+  });
+}
+
+function startPlanDrag(e,row,list){
+  e.preventDefault();
+  const rows=Array.from(list.querySelectorAll('.plan-item-row'));
+  const rowH=row.getBoundingClientRect().height+4;
+  row.style.cssText+='position:relative;z-index:50;box-shadow:0 6px 16px rgba(0,0,0,.5);transform:scale(1.02);transition:none;cursor:grabbing';
+  const others=rows.filter(r=>r!==row);
+  others.forEach(r=>r.style.transition='transform .15s ease');
+  let curOffset=0;
+  function onMove(ev){
+    curOffset=ev.clientY-e.clientY;
+    row.style.transform=`translateY(${curOffset}px) scale(1.02)`;
+    const myIdx=rows.indexOf(row);
+    others.forEach(r=>{
+      const idx=rows.indexOf(r);
+      let shift=0;
+      if(curOffset>0&&idx>myIdx&&curOffset>(idx-myIdx-.5)*rowH) shift=-rowH;
+      if(curOffset<0&&idx<myIdx&&curOffset<-(myIdx-idx-.5)*rowH) shift=rowH;
+      r.style.transform=`translateY(${shift}px)`;
+      r.dataset.shift=shift;
+    });
+  }
+  function onUp(){
+    document.removeEventListener('pointermove',onMove);
+    document.removeEventListener('pointerup',onUp);
+    const myIdx=rows.indexOf(row);
+    let targetIdx=myIdx;
+    others.forEach(r=>{if(r.dataset.shift&&r.dataset.shift!=='0'){const idx=rows.indexOf(r);targetIdx=Number(r.dataset.shift)<0?Math.max(targetIdx,idx):Math.min(targetIdx===myIdx?idx:targetIdx,idx);}});
+    row.style.position='';row.style.zIndex='';row.style.boxShadow='';row.style.transform='';row.style.transition='';
+    others.forEach(r=>{r.style.transform='';r.style.transition='';delete r.dataset.shift;});
+    if(targetIdx!==myIdx){
+      const today=todayStr();
+      const dp=JSON.parse(JSON.stringify(getPlanForDate(today)));
+      const fromId=rows[myIdx].dataset.id;
+      const fromIdx=dp.items.findIndex(i=>i.id===fromId);
+      if(fromIdx>=0){const[item]=dp.items.splice(fromIdx,1);dp.items.splice(Math.max(0,Math.min(dp.items.length,targetIdx)),0,item);savePlan(today,dp);}
+    }
+    renderPlanBody();
+  }
+  document.addEventListener('pointermove',onMove);
+  document.addEventListener('pointerup',onUp);
+}
 
 function mKey(id){return `m${id}`;}
 function docId(y,m){return `mm_${y}_${String(m).padStart(2,'0')}`;}
@@ -667,6 +978,9 @@ document.getElementById('modalOverlay').addEventListener('click',(e)=>{if(e.targ
 // ── 초기화 ────────────────────────────────────────
 subscribeMembers();
 subscribeMonth(curYear,curMonth);
+subscribePlan();
+
+document.getElementById('planBtn').addEventListener('click',openPlan);
 </script>
 </body>
 </html>
