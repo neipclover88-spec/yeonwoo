@@ -376,12 +376,35 @@ window.delPlanItem=function(id){
 };
 
 window.capturePlan=function(){
-  const target=document.getElementById('planCard');if(!target||typeof html2canvas==='undefined')return;
-  const btns=document.querySelector('.plan-hdr').querySelector('div:last-child');btns.style.display='none';
-  html2canvas(target,{backgroundColor:'#0e1320',scale:2,useCORS:true}).then(canvas=>{
-    btns.style.display='';const a=document.createElement('a');
-    a.download=`할일_${todayStr()}.png`;a.href=canvas.toDataURL('image/png');a.click();
-  }).catch(()=>btns.style.display='');
+  const card=document.getElementById('planCard');
+  const body=document.getElementById('planBody');
+  if(!card||typeof html2canvas==='undefined')return;
+  const btns=document.querySelector('.plan-hdr').querySelector('div:last-child');
+  btns.style.display='none';
+  // 스크롤 영역 임시 해제 → 전체 높이로 펼침
+  const origCardMaxH=card.style.maxHeight;
+  const origBodyMaxH=body.style.maxHeight;
+  const origBodyOverflow=body.style.overflowY;
+  card.style.maxHeight='none';
+  body.style.maxHeight='none';
+  body.style.overflowY='visible';
+  setTimeout(()=>{
+    html2canvas(card,{backgroundColor:'#0e1320',scale:2,useCORS:true,windowWidth:card.scrollWidth,height:card.scrollHeight}).then(canvas=>{
+      // 복원
+      card.style.maxHeight=origCardMaxH;
+      body.style.maxHeight=origBodyMaxH;
+      body.style.overflowY=origBodyOverflow;
+      btns.style.display='';
+      const a=document.createElement('a');
+      a.download=`할일_${todayStr()}.png`;
+      a.href=canvas.toDataURL('image/png');a.click();
+    }).catch(()=>{
+      card.style.maxHeight=origCardMaxH;
+      body.style.maxHeight=origBodyMaxH;
+      body.style.overflowY=origBodyOverflow;
+      btns.style.display='';
+    });
+  },50);
 };
 
 function initPlanDrag(){
