@@ -324,8 +324,8 @@ function renderPlanBody(){
       <div class="clover-row">
         ${dp.items.map(it=>{
           if(it.done)return`<span style="font-size:2rem;line-height:1;filter:drop-shadow(0 0 5px rgba(0,229,160,.5))">🍀</span>`;
-          if(it.fail)return`<span style="font-size:2rem;line-height:1;filter:grayscale(1) sepia(1) saturate(4) hue-rotate(300deg);opacity:.55">🍀</span>`;
-          return`<span style="font-size:2rem;line-height:1;opacity:.15;filter:grayscale(1)">🍀</span>`;
+          if(it.fail)return`<span style="position:relative;display:inline-block;font-size:2rem;line-height:1;opacity:.5"><span>🍀</span><span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:900;color:#ff6b6b">✕</span></span>`;
+          return`<span style="font-size:2rem;line-height:1;opacity:.15">🍀</span>`;
         }).join('')}
       </div>
       <div class="clover-stat">${ps.achieved}/${ps.total} 달성${ps.failed>0?` <span style="color:#ff6b6b;font-size:.85rem">✗${ps.failed}</span>`:''}</div>
