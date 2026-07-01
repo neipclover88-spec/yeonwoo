@@ -229,21 +229,18 @@ function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 function setSyncDot(ok){const el=document.getElementById('syncDot');el.textContent=ok?'● 실시간':'● 오류';el.classList.toggle('err',!ok);}
 
 let unsubMembers=null;
+
 function subscribeMembers(){
   if(unsubMembers)unsubMembers();
   unsubMembers=onSnapshot(doc(db,'miraclemorning','_members'),snap=>{
-    if(snap.exists()&&snap.data().members?.length){
-      const raw=snap.data().members;
-      // 구형 포맷: active 필드가 있거나 필드가 3개 초과
-      const isOld=raw.some(m=>'active' in m || Object.keys(m).length>3);
-      if(isOld){
-        members=[...DEFAULT_MEMBERS];
-        saveMembers(); // 깨끗한 포맷으로 덮어쓰기
-      } else {
-        members=raw.length>0?raw:[...DEFAULT_MEMBERS];
-      }
+    const data=snap.exists()?snap.data():null;
+    // v2 마커가 있어야만 신뢰할 수 있는 새 포맷
+    if(data?.v2===true&&Array.isArray(data.members)&&data.members.length>0){
+      members=data.members;
     } else {
+      // 구형 데이터이거나 없는 경우 → 기본값으로 리셋 후 저장
       members=[...DEFAULT_MEMBERS];
+      saveMembers();
     }
     renderChips();
     Object.values(unsubPlans).forEach(u=>u());
@@ -259,85 +256,13 @@ function subscribeMembers(){
 
 async function saveMembers(){
   const clean=members.map(({id,name,emoji})=>({id,name,emoji}));
-  await setDoc(doc(db,'miraclemorning','_members'),{members:clean});
+  await setDoc(doc(db,'miraclemorning','_members'),{v2:true,members:clean});
 }
 
 window.deleteMember=function(id){
-  const chip=document.querySelector(`.member-chip[data-id="${id}"]`);
-  if(!chip)return;
-  // 이미 확인 모드면 바로 삭제
-  if(chip.dataset.confirm==='1'){
-    members=members.filter(m=>m.id!==id);
-    saveMembers();
-    return;
-  }
-  // 첫 번째 탭: 확인 모드로 전환
-  chip.dataset.confirm='1';
-  chip.style.borderColor='#ff6b6b';
-  chip.style.background='rgba(255,107,107,.12)';
-  const delBtn=chip.querySelector('.chip-del');
-  if(delBtn){delBtn.textContent='삭제?';delBtn.style.color='#ff6b6b';delBtn.style.opacity='1';}
-  setTimeout(()=>{
-    if(chip.isConnected&&chip.dataset.confirm==='1'){
-      chip.dataset.confirm='';
-      chip.style.borderColor='';chip.style.background='';
-      if(delBtn){delBtn.textContent='✕';delBtn.style.color='';delBtn.style.opacity='';}
-    }
-  },2500);
-};
-
-const PRESET_EMOJIS=['🫒','🍀','🌿','🌸','🦋','🐻','🐯','🦊','🐸','🌟','💎','🔥','🌙','☀️','🍎','🍊','🍋','🎯','🚀','💡'];
-
-window.openAddMember=function(){
-  document.getElementById('addMemberOverlay').classList.add('show');
-  document.getElementById('newMemberName').value='';
-  document.getElementById('newMemberEmoji').value='';
-  renderEmojiPicker();
-};
-window.closeAddMember=function(){
-  document.getElementById('addMemberOverlay').classList.remove('show');
-};
-let pickedEmoji='';
-function renderEmojiPicker(){
-  pickedEmoji='';
-  document.getElementById('emojiPicker').innerHTML=PRESET_EMOJIS.map(e=>
-    `<button class="emoji-opt" onclick="window.pickEmoji('${e}')">${e}</button>`
-  ).join('');
-}
-window.pickEmoji=function(e){
-  pickedEmoji=e;
-  document.querySelectorAll('.emoji-opt').forEach(b=>{
-    b.style.background=b.textContent===e?'rgba(0,229,160,.25)':'';
-    b.style.borderColor=b.textContent===e?'#00e5a0':'var(--border)';
-  });
-  document.getElementById('newMemberEmoji').value=e;
-};
-window.saveNewMember=function(){
-  const name=document.getElementById('newMemberName').value.trim();
-  const emoji=document.getElementById('newMemberEmoji').value.trim()||'👤';
-  if(!name){alert('이름을 입력해주세요');return;}
-  const id='mem_'+Date.now();
-  members.push({id,name,emoji});
+  members=members.filter(m=>m.id!==id);
   saveMembers();
-  window.closeAddMember();
 };
-
-function subscribePlans(){
-  members.forEach(mem=>{
-    if(unsubPlans[mem.id])unsubPlans[mem.id]();
-    unsubPlans[mem.id]=onSnapshot(doc(db,'miraclemorning',pdocId(mem.id,curYear,curMonth)),snap=>{
-      plansByMember[mem.id]=snap.exists()?snap.data():{};
-      renderCalendar();
-      if(openMemberId===mem.id&&document.getElementById('planOverlay').classList.contains('show'))renderPlanBody();
-      document.getElementById('loading').classList.add('hidden');
-      setSyncDot(true);
-    },err=>{
-      console.error('Firestore error:',err);
-      document.getElementById('loading').classList.add('hidden');
-      setSyncDot(false);
-    });
-  });
-}
 
 async function savePlan(mid,ds,data){
   if(!plansByMember[mid])plansByMember[mid]={};
@@ -380,7 +305,7 @@ function renderChips(){
       `<div class="member-chip" data-id="${m.id}" onclick="window.openPlan('${m.id}')">
         <span class="member-emoji">${m.emoji}</span>
         <span>${m.name}</span>
-        <span class="chip-del" onclick="event.stopPropagation();window.deleteMember('${m.id}')" title="삭제">✕</span>
+        <span class="chip-del" onclick="event.stopPropagation();event.preventDefault();window.deleteMember('${m.id}')">✕</span>
       </div>`
     ).join('')+
     `<div class="member-chip add-chip" onclick="window.openAddMember()">
