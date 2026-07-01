@@ -229,19 +229,24 @@ function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 function setSyncDot(ok){const el=document.getElementById('syncDot');el.textContent=ok?'● 실시간':'● 오류';el.classList.toggle('err',!ok);}
 
 let unsubMembers=null;
+let membersReady=false;
 
 function subscribeMembers(){
   if(unsubMembers)unsubMembers();
+  membersReady=false;
   unsubMembers=onSnapshot(doc(db,'miraclemorning','_members'),snap=>{
     const data=snap.exists()?snap.data():null;
-    // v2 마커가 있어야만 신뢰할 수 있는 새 포맷
     if(data?.v2===true&&Array.isArray(data.members)&&data.members.length>0){
+      // 새 포맷 정상 로드
       members=data.members;
-    } else {
-      // 구형 데이터이거나 없는 경우 → 기본값으로 리셋 후 저장
+    } else if(!membersReady){
+      // 구형/없음 → 기본값 저장 후 다음 snapshot에서 처리
+      membersReady=true;
       members=[...DEFAULT_MEMBERS];
       saveMembers();
+      return; // 저장 후 재발동되는 snapshot에서 렌더링
     }
+    membersReady=true;
     renderChips();
     Object.values(unsubPlans).forEach(u=>u());
     unsubPlans={};plansByMember={};
