@@ -234,12 +234,11 @@ function subscribeMembers(){
   unsubMembers=onSnapshot(doc(db,'miraclemorning','_members'),snap=>{
     if(snap.exists()&&snap.data().members?.length){
       const raw=snap.data().members;
-      // 구형 포맷 감지 (deposits, joinDate 등 불필요한 필드 포함)
-      const isOld=raw.some(m=>m.deposits!==undefined||m.joinDate!==undefined||m.depositReceived!==undefined);
+      // 구형 포맷: active 필드가 있거나 필드가 3개 초과
+      const isOld=raw.some(m=>'active' in m || Object.keys(m).length>3);
       if(isOld){
-        // 구형 데이터 → 기본값으로 초기화 후 Firestore 덮어쓰기
         members=[...DEFAULT_MEMBERS];
-        saveMembers();
+        saveMembers(); // 깨끗한 포맷으로 덮어쓰기
       } else {
         members=raw.length>0?raw:[...DEFAULT_MEMBERS];
       }
@@ -250,6 +249,7 @@ function subscribeMembers(){
     Object.values(unsubPlans).forEach(u=>u());
     unsubPlans={};plansByMember={};
     subscribePlans();
+    document.getElementById('loading').classList.add('hidden');
   },()=>{
     members=[...DEFAULT_MEMBERS];
     renderChips();subscribePlans();
@@ -263,26 +263,27 @@ async function saveMembers(){
 }
 
 window.deleteMember=function(id){
-  const mem=members.find(m=>m.id===id);
-  if(!mem)return;
-  // confirm 대신 인라인 확인 (일부 브라우저 confirm 차단 문제 우회)
   const chip=document.querySelector(`.member-chip[data-id="${id}"]`);
-  if(chip){
-    chip.style.background='rgba(255,107,107,.15)';
-    chip.style.borderColor='#ff6b6b';
-    const delBtn=chip.querySelector('.chip-del');
-    if(delBtn){
-      delBtn.textContent='삭제?';
-      delBtn.style.color='#ff6b6b';delBtn.style.opacity='1';delBtn.style.fontSize='.65rem';
-      delBtn.onclick=e=>{
-        e.stopPropagation();
-        members=members.filter(m=>m.id!==id);
-        saveMembers();
-      };
-      // 2초 후 취소
-      setTimeout(()=>{if(chip.isConnected){renderChips();}},2000);
-    }
+  if(!chip)return;
+  // 이미 확인 모드면 바로 삭제
+  if(chip.dataset.confirm==='1'){
+    members=members.filter(m=>m.id!==id);
+    saveMembers();
+    return;
   }
+  // 첫 번째 탭: 확인 모드로 전환
+  chip.dataset.confirm='1';
+  chip.style.borderColor='#ff6b6b';
+  chip.style.background='rgba(255,107,107,.12)';
+  const delBtn=chip.querySelector('.chip-del');
+  if(delBtn){delBtn.textContent='삭제?';delBtn.style.color='#ff6b6b';delBtn.style.opacity='1';}
+  setTimeout(()=>{
+    if(chip.isConnected&&chip.dataset.confirm==='1'){
+      chip.dataset.confirm='';
+      chip.style.borderColor='';chip.style.background='';
+      if(delBtn){delBtn.textContent='✕';delBtn.style.color='';delBtn.style.opacity='';}
+    }
+  },2500);
 };
 
 const PRESET_EMOJIS=['🫒','🍀','🌿','🌸','🦋','🐻','🐯','🦊','🐸','🌟','💎','🔥','🌙','☀️','🍎','🍊','🍋','🎯','🚀','💡'];
