@@ -565,10 +565,12 @@ window.capturePlan=function(){
     html2canvas(clone,{backgroundColor:'#0e1320',scale:2,useCORS:true,width:clone.offsetWidth,height:clone.scrollHeight}).then(async canvas=>{
       document.body.removeChild(clone);
       const fileName=`할일_${todayStr()}.png`;
-      const dataUrl=canvas.toDataURL('image/png');
 
-      // 1) 공유 시트 먼저 시도 (지원되는 기기)
-      if(navigator.share){
+      // 모바일 여부 확인
+      const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+      if(isMobile&&navigator.share){
+        // 모바일: 공유 시트
         try{
           const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
           const file=new File([blob],fileName,{type:'image/png'});
@@ -576,27 +578,34 @@ window.capturePlan=function(){
           return;
         }catch(e){
           if(e.name==='AbortError')return;
+          // 공유 실패 시 이미지 오버레이로 fallback
         }
       }
 
-      // 2) 공유 안 되면 이미지 전체화면으로 띄우기 → 꾹 눌러서 저장
-      const overlay=document.createElement('div');
-      overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px';
-      const hint=document.createElement('div');
-      hint.textContent='이미지를 꾹 눌러서 저장하세요';
-      hint.style.cssText='color:#ffd93d;font-size:.85rem;font-weight:700;font-family:\'Noto Sans KR\',sans-serif';
-      const img=document.createElement('img');
-      img.src=dataUrl;
-      img.style.cssText='max-width:100%;max-height:80vh;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.5)';
-      const closeBtn=document.createElement('button');
-      closeBtn.textContent='닫기';
-      closeBtn.style.cssText='background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:8px;padding:8px 24px;font-size:.85rem;cursor:pointer;font-family:\'Noto Sans KR\',sans-serif';
-      closeBtn.addEventListener('click',()=>document.body.removeChild(overlay));
-      overlay.addEventListener('click',e=>{if(e.target===overlay)document.body.removeChild(overlay);});
-      overlay.appendChild(hint);
-      overlay.appendChild(img);
-      overlay.appendChild(closeBtn);
-      document.body.appendChild(overlay);
+      if(isMobile){
+        // 모바일 공유 실패: 꾹 눌러 저장 오버레이
+        const overlay=document.createElement('div');
+        overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px';
+        const hint=document.createElement('div');
+        hint.textContent='이미지를 꾹 눌러서 저장하세요';
+        hint.style.cssText='color:#ffd93d;font-size:.85rem;font-weight:700;font-family:\'Noto Sans KR\',sans-serif';
+        const img=document.createElement('img');
+        img.src=canvas.toDataURL('image/png');
+        img.style.cssText='max-width:100%;max-height:80vh;border-radius:12px';
+        const closeBtn=document.createElement('button');
+        closeBtn.textContent='닫기';
+        closeBtn.style.cssText='background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:8px;padding:8px 24px;font-size:.85rem;cursor:pointer;font-family:\'Noto Sans KR\',sans-serif';
+        closeBtn.addEventListener('click',()=>document.body.removeChild(overlay));
+        overlay.addEventListener('click',e=>{if(e.target===overlay)document.body.removeChild(overlay);});
+        overlay.appendChild(hint);overlay.appendChild(img);overlay.appendChild(closeBtn);
+        document.body.appendChild(overlay);
+      } else {
+        // PC: 바로 다운로드
+        const a=document.createElement('a');
+        a.download=fileName;
+        a.href=canvas.toDataURL('image/png');
+        a.click();
+      }
     }).catch(()=>{try{document.body.removeChild(clone);}catch(e){}});
   },80);
 };
