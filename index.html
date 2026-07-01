@@ -441,21 +441,21 @@ window.toggleRest=function(field){
   dp[field]=!dp[field];
   if(field==='isRest'&&dp.isRest)dp.isSpecialRest=false;
   if(field==='isSpecialRest'&&dp.isSpecialRest)dp.isRest=false;
-  savePlan(openMemberId,today,dp);
+  savePlan(openMemberId,today,dp);renderPlanBody();
 };
 
 window.togglePlanItem=function(id){
   if(!openMemberId)return;
   const today=todayStr(),dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
   const it=dp.items.find(i=>i.id===id);if(it){it.done=!it.done;if(it.done)it.fail=false;}
-  savePlan(openMemberId,today,dp);
+  savePlan(openMemberId,today,dp);renderPlanBody();
 };
 
 window.failPlanItem=function(id){
   if(!openMemberId)return;
   const today=todayStr(),dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
   const it=dp.items.find(i=>i.id===id);if(it){it.fail=!it.fail;if(it.fail)it.done=false;}
-  savePlan(openMemberId,today,dp);
+  savePlan(openMemberId,today,dp);renderPlanBody();
 };
 
 window.handlePaste=function(e){
@@ -467,7 +467,7 @@ window.handlePaste=function(e){
   const today=todayStr(),dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
   lines.forEach(function(name){dp.items.push({id:genId(),name:name,done:false});});
   document.getElementById('planItemInp').value='';
-  savePlan(openMemberId,today,dp);
+  savePlan(openMemberId,today,dp);renderPlanBody();
 };
 
 window.addPlanItem=function(){
@@ -475,7 +475,7 @@ window.addPlanItem=function(){
   const inp=document.getElementById('planItemInp'),name=inp?.value.trim();if(!name)return;
   const today=todayStr(),dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
   dp.items.push({id:genId(),name,done:false});inp.value='';
-  savePlan(openMemberId,today,dp);
+  savePlan(openMemberId,today,dp);renderPlanBody();
 };
 
 window.editPlanItem=function(id){
@@ -548,7 +548,7 @@ window.editPlanItem=function(id){
 window.delPlanItem=function(id){
   if(!openMemberId)return;
   const today=todayStr(),dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
-  dp.items=dp.items.filter(i=>i.id!==id);savePlan(openMemberId,today,dp);
+  dp.items=dp.items.filter(i=>i.id!==id);savePlan(openMemberId,today,dp);renderPlanBody();
 };
 
 window.capturePlan=function(){
@@ -557,13 +557,17 @@ window.capturePlan=function(){
   const clone=card.cloneNode(true);
   const cloneBtns=clone.querySelector('.plan-hdr').querySelector('div:last-child');
   if(cloneBtns)cloneBtns.style.display='none';
-  Object.assign(clone.style,{position:'fixed',top:'-9999px',left:'0',maxHeight:'none',height:'auto',width:card.offsetWidth+'px',overflowY:'visible',zIndex:'-1',borderRadius:'0'});
+  // absolute 포지셔닝으로 뷰포트 높이 제약 없이 전체 렌더링
+  const wrap=document.createElement('div');
+  wrap.style.cssText='position:absolute;left:-9999px;top:0;width:'+card.offsetWidth+'px;overflow:visible;pointer-events:none';
+  clone.style.cssText='max-height:none;height:auto;border-radius:0;overflow:visible;width:100%';
   const cloneBody=clone.querySelector('#planBody');
-  if(cloneBody){cloneBody.style.maxHeight='none';cloneBody.style.overflowY='visible';}
-  document.body.appendChild(clone);
+  if(cloneBody){cloneBody.style.cssText+='max-height:none;overflow:visible;flex:none';}
+  wrap.appendChild(clone);
+  document.body.appendChild(wrap);
   setTimeout(()=>{
-    html2canvas(clone,{backgroundColor:'#0e1320',scale:2,useCORS:true,width:clone.offsetWidth,height:clone.scrollHeight}).then(async canvas=>{
-      document.body.removeChild(clone);
+    html2canvas(clone,{backgroundColor:'#0e1320',scale:2,useCORS:true,width:wrap.offsetWidth,height:clone.scrollHeight}).then(async canvas=>{
+      document.body.removeChild(wrap);
       const fileName=`할일_${todayStr()}.png`;
 
       // 모바일 여부 확인
@@ -606,8 +610,8 @@ window.capturePlan=function(){
         a.href=canvas.toDataURL('image/png');
         a.click();
       }
-    }).catch(()=>{try{document.body.removeChild(clone);}catch(e){}});
-  },80);
+    }).catch(()=>{try{document.body.removeChild(wrap);}catch(e){}});
+  },150);
 };
 
 function initPlanDrag(){
