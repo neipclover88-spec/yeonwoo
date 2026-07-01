@@ -473,11 +473,25 @@ window.capturePlan=function(){
   if(cloneBody){cloneBody.style.maxHeight='none';cloneBody.style.overflowY='visible';}
   document.body.appendChild(clone);
   setTimeout(()=>{
-    html2canvas(clone,{backgroundColor:'#0e1320',scale:2,useCORS:true,width:clone.offsetWidth,height:clone.scrollHeight}).then(canvas=>{
+    html2canvas(clone,{backgroundColor:'#0e1320',scale:2,useCORS:true,width:clone.offsetWidth,height:clone.scrollHeight}).then(async canvas=>{
       document.body.removeChild(clone);
+      const fileName=`할일_${todayStr()}.png`;
+      // 모바일: 공유 시트로 갤러리 저장
+      if(navigator.canShare){
+        try{
+          const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
+          const file=new File([blob],fileName,{type:'image/png'});
+          if(navigator.canShare({files:[file]})){
+            await navigator.share({files:[file],title:'오늘 할 일'});
+            return;
+          }
+        }catch(e){if(e.name==='AbortError')return;}
+      }
+      // 데스크탑 fallback: 파일 다운로드
       const a=document.createElement('a');
-      a.download=`할일_${todayStr()}.png`;
-      a.href=canvas.toDataURL('image/png');a.click();
+      a.download=fileName;
+      a.href=canvas.toDataURL('image/png');
+      a.click();
     }).catch(()=>{try{document.body.removeChild(clone);}catch(e){}});
   },80);
 };
