@@ -395,18 +395,35 @@ window.editPlanItem=function(id){
   const dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
   const it=dp.items.find(i=>i.id===id);
   if(!it)return;
-  // 인라인 수정: 해당 항목의 텍스트를 input으로 교체
   const row=document.querySelector(`.plan-item-row[data-id="${id}"]`);
   if(!row)return;
   const textDiv=row.querySelector('div[style*="flex:1"]');
   if(!textDiv)return;
+
+  // 기존 버튼들 임시 숨기기
+  const btns=row.querySelectorAll('button');
+  btns.forEach(b=>b.style.display='none');
+
+  // 인라인 수정 UI
+  const wrap=document.createElement('div');
+  wrap.style.cssText='flex:1;display:flex;gap:4px;min-width:0;align-items:center';
   const inp=document.createElement('input');
   inp.value=it.name;
-  inp.style.cssText='flex:1;background:var(--s2);border:1px solid #ffd93d;border-radius:5px;color:var(--text);font-size:.82rem;padding:2px 6px;outline:none;font-family:inherit;min-width:0';
-  const origContent=textDiv.innerHTML;
+  inp.style.cssText='flex:1;background:var(--s2);border:1px solid #ffd93d;border-radius:5px;color:var(--text);font-size:.8rem;padding:3px 6px;outline:none;font-family:inherit;min-width:0';
+  const saveBtn=document.createElement('button');
+  saveBtn.textContent='✓';
+  saveBtn.style.cssText='background:rgba(0,229,160,.2);border:1px solid #00e5a0;border-radius:5px;color:#00e5a0;font-size:.8rem;font-weight:700;padding:2px 7px;cursor:pointer;flex-shrink:0';
+  const cancelBtn=document.createElement('button');
+  cancelBtn.textContent='✕';
+  cancelBtn.style.cssText='background:none;border:1px solid var(--muted);border-radius:5px;color:var(--muted);font-size:.8rem;padding:2px 6px;cursor:pointer;flex-shrink:0';
+
+  wrap.appendChild(inp);
+  wrap.appendChild(saveBtn);
+  wrap.appendChild(cancelBtn);
   textDiv.innerHTML='';
-  textDiv.appendChild(inp);
-  inp.focus();inp.select();
+  textDiv.appendChild(wrap);
+  setTimeout(()=>{inp.focus();inp.select();},50);
+
   const save=()=>{
     const newName=inp.value.trim();
     if(newName&&newName!==it.name){
@@ -416,8 +433,16 @@ window.editPlanItem=function(id){
       renderPlanBody();
     }
   };
-  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();save();}if(e.key==='Escape'){textDiv.innerHTML=origContent;}});
-  inp.addEventListener('blur',save);
+  const cancel=()=>renderPlanBody();
+
+  saveBtn.addEventListener('pointerdown',e=>{e.preventDefault();save();});
+  cancelBtn.addEventListener('pointerdown',e=>{e.preventDefault();cancel();});
+  saveBtn.addEventListener('click',e=>{e.stopPropagation();save();});
+  cancelBtn.addEventListener('click',e=>{e.stopPropagation();cancel();});
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();save();}
+    if(e.key==='Escape'){cancel();}
+  });
 };
 
 window.delPlanItem=function(id){
@@ -449,16 +474,34 @@ window.capturePlan=function(){
 function initPlanDrag(){
   const list=document.getElementById('planItemList');if(!list)return;
   list.querySelectorAll('.plan-item-row').forEach(row=>{
-    row.onpointerdown=(e)=>{
-      const ck=row.querySelector('[data-check]'),fk=row.querySelector('[data-fail]'),dk=row.querySelector('[data-del]'),ek=row.querySelector('[data-edit]');
-      if(e.target===fk||e.target.closest('[data-fail]')===fk){window.failPlanItem(fk.dataset.fail);return;}
-      if(e.target===dk||e.target.closest('[data-del]')===dk){window.delPlanItem(dk.dataset.del);return;}
-      if(e.target===ek||e.target.closest('[data-edit]')===ek){window.editPlanItem(ek.dataset.edit);return;}
+    const ck=row.querySelector('[data-check]');
+    const fk=row.querySelector('[data-fail]');
+    const dk=row.querySelector('[data-del]');
+    const ek=row.querySelector('[data-edit]');
+
+    // 버튼마다 click 이벤트 직접 등록 (드래그 시스템과 분리)
+    if(fk) fk.addEventListener('click',e=>{e.stopPropagation();window.failPlanItem(fk.dataset.fail);});
+    if(dk) dk.addEventListener('click',e=>{e.stopPropagation();window.delPlanItem(dk.dataset.del);});
+    if(ek) ek.addEventListener('click',e=>{e.stopPropagation();window.editPlanItem(ek.dataset.edit);});
+
+    // 드래그/체크는 버튼 바깥 영역에서만
+    row.addEventListener('pointerdown',e=>{
+      if(e.target.closest('button'))return;
       let t=setTimeout(()=>{t=null;startDrag(e,row,list);},150);
-      const up=()=>{row.removeEventListener('pointerup',up);row.removeEventListener('pointermove',mv);if(t!==null){clearTimeout(t);if(!e.target.closest('button'))window.togglePlanItem(ck.dataset.check);}};
-      const mv=(ev)=>{if((Math.abs(ev.clientX-e.clientX)>6||Math.abs(ev.clientY-e.clientY)>6)&&t!==null){clearTimeout(t);t=null;row.removeEventListener('pointerup',up);row.removeEventListener('pointermove',mv);startDrag(e,row,list);}};
+      const up=()=>{
+        row.removeEventListener('pointerup',up);
+        row.removeEventListener('pointermove',mv);
+        if(t!==null){clearTimeout(t);window.togglePlanItem(ck.dataset.check);}
+      };
+      const mv=(ev)=>{
+        if((Math.abs(ev.clientX-e.clientX)>6||Math.abs(ev.clientY-e.clientY)>6)&&t!==null){
+          clearTimeout(t);t=null;
+          row.removeEventListener('pointerup',up);row.removeEventListener('pointermove',mv);
+          startDrag(e,row,list);
+        }
+      };
       row.addEventListener('pointerup',up);row.addEventListener('pointermove',mv);
-    };
+    });
   });
 }
 
