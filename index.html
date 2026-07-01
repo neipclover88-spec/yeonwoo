@@ -229,6 +229,23 @@ function renderChips(){
   ).join('');
 }
 
+function subscribePlans(){
+  MEMBERS.forEach(mem=>{
+    if(unsubPlans[mem.id])unsubPlans[mem.id]();
+    unsubPlans[mem.id]=onSnapshot(doc(db,'miraclemorning',pdocId(mem.id,curYear,curMonth)),snap=>{
+      plansByMember[mem.id]=snap.exists()?snap.data():{};
+      renderCalendar();
+      if(openMemberId===mem.id&&document.getElementById('planOverlay').classList.contains('show'))renderPlanBody();
+      document.getElementById('loading').classList.add('hidden');
+      setSyncDot(true);
+    },err=>{
+      console.error('Firestore error:',err);
+      document.getElementById('loading').classList.add('hidden');
+      setSyncDot(false);
+    });
+  });
+}
+
 function renderCalendar(){
   const mn=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
   document.getElementById('calTitle').textContent=`${curYear}년 ${mn[curMonth]}`;
