@@ -76,6 +76,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .plan-item-row{display:flex;align-items:center;gap:6px;border-radius:7px;padding:5px 8px;touch-action:none;user-select:none;cursor:grab}
 .plan-chk{width:18px;height:18px;border-radius:50%;border:2px solid;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.6rem}
 .plan-fail-btn,.plan-del-btn{background:none;border:1.5px solid;border-radius:50%;width:18px;height:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.55rem;font-weight:700;flex-shrink:0}
+.plan-edit-btn{background:none;border:1.5px solid var(--muted);border-radius:50%;width:18px;height:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.6rem;flex-shrink:0;color:var(--muted);opacity:.6}
 .plan-add-row{display:flex;gap:.35rem}
 .plan-add-inp{flex:1;background:var(--s2);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:.82rem;padding:6px 9px;outline:none;font-family:'Noto Sans KR',sans-serif}
 .plan-add-inp:focus{border-color:#ffd93d}
@@ -294,17 +295,21 @@ function renderPlanBody(){
     b+=`<div style="display:flex;flex-direction:column;gap:4px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
         <span style="font-size:.72rem;color:var(--muted)">오늘 목표 (${dp.items.length}개)</span>
-        <span style="font-size:.62rem;color:var(--muted)">탭=체크 · ✗=못함 · ✕=삭제</span>
+        <span style="font-size:.62rem;color:var(--muted)">탭=체크 · ✏️=수정 · ✗=못함 · ✕=삭제</span>
       </div>
       <div id="planItemList" style="display:flex;flex-direction:column;gap:4px">
       ${dp.items.map(it=>{
-        const dn=!!it.done,fl=!!it.fail;
+        const dn=!!it.done,fl=!!it.fail,ed=!!it.edited;
         const bg=dn?'rgba(0,229,160,.07)':fl?'rgba(255,107,107,.07)':'rgba(255,255,255,.02)';
         const bd=dn?'rgba(0,229,160,.2)':fl?'rgba(255,107,107,.2)':'var(--border)';
         const tc=dn?'#00e5a0':fl?'rgba(255,107,107,.5)':'var(--text)';
         return`<div class="plan-item-row" data-id="${it.id}" style="background:${bg};border:1px solid ${bd}">
           <div data-check="${it.id}" class="plan-chk" style="border-color:${dn?'#00e5a0':fl?'rgba(255,107,107,.3)':'var(--muted)'};background:${dn?'#00e5a0':'none'};color:#0d0f1a">${dn?'✓':''}</div>
-          <span style="flex:1;font-size:.82rem;color:${tc};text-decoration:${dn||fl?'line-through':'none'};line-height:1.3">${esc(it.name)}</span>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+            <span style="font-size:.82rem;color:${tc};text-decoration:${dn||fl?'line-through':'none'};line-height:1.3;word-break:break-all">${esc(it.name)}</span>
+            ${ed?`<span style="font-size:.55rem;color:#ffd93d;opacity:.7">✏ 수정됨</span>`:''}
+          </div>
+          <button data-edit="${it.id}" class="plan-edit-btn" title="수정">✏</button>
           <button data-fail="${it.id}" class="plan-fail-btn" style="border-color:${fl?'#ff6b6b':'var(--muted)'};background:${fl?'#ff6b6b':'none'};color:${fl?'#fff':'var(--muted)'}">✗</button>
           <button data-del="${it.id}" class="plan-del-btn" style="border-color:var(--muted);color:var(--muted);opacity:.4">✕</button>
         </div>`;
@@ -384,6 +389,37 @@ window.addPlanItem=function(){
   savePlan(openMemberId,today,dp);
 };
 
+window.editPlanItem=function(id){
+  if(!openMemberId)return;
+  const today=todayStr();
+  const dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
+  const it=dp.items.find(i=>i.id===id);
+  if(!it)return;
+  // 인라인 수정: 해당 항목의 텍스트를 input으로 교체
+  const row=document.querySelector(`.plan-item-row[data-id="${id}"]`);
+  if(!row)return;
+  const textDiv=row.querySelector('div[style*="flex:1"]');
+  if(!textDiv)return;
+  const inp=document.createElement('input');
+  inp.value=it.name;
+  inp.style.cssText='flex:1;background:var(--s2);border:1px solid #ffd93d;border-radius:5px;color:var(--text);font-size:.82rem;padding:2px 6px;outline:none;font-family:inherit;min-width:0';
+  const origContent=textDiv.innerHTML;
+  textDiv.innerHTML='';
+  textDiv.appendChild(inp);
+  inp.focus();inp.select();
+  const save=()=>{
+    const newName=inp.value.trim();
+    if(newName&&newName!==it.name){
+      it.name=newName;it.edited=true;
+      savePlan(openMemberId,today,dp);
+    } else {
+      renderPlanBody();
+    }
+  };
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();save();}if(e.key==='Escape'){textDiv.innerHTML=origContent;}});
+  inp.addEventListener('blur',save);
+};
+
 window.delPlanItem=function(id){
   if(!openMemberId)return;
   const today=todayStr(),dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
@@ -414,9 +450,10 @@ function initPlanDrag(){
   const list=document.getElementById('planItemList');if(!list)return;
   list.querySelectorAll('.plan-item-row').forEach(row=>{
     row.onpointerdown=(e)=>{
-      const ck=row.querySelector('[data-check]'),fk=row.querySelector('[data-fail]'),dk=row.querySelector('[data-del]');
-      if(e.target===fk){window.failPlanItem(fk.dataset.fail);return;}
-      if(e.target===dk){window.delPlanItem(dk.dataset.del);return;}
+      const ck=row.querySelector('[data-check]'),fk=row.querySelector('[data-fail]'),dk=row.querySelector('[data-del]'),ek=row.querySelector('[data-edit]');
+      if(e.target===fk||e.target.closest('[data-fail]')===fk){window.failPlanItem(fk.dataset.fail);return;}
+      if(e.target===dk||e.target.closest('[data-del]')===dk){window.delPlanItem(dk.dataset.del);return;}
+      if(e.target===ek||e.target.closest('[data-edit]')===ek){window.editPlanItem(ek.dataset.edit);return;}
       let t=setTimeout(()=>{t=null;startDrag(e,row,list);},150);
       const up=()=>{row.removeEventListener('pointerup',up);row.removeEventListener('pointermove',mv);if(t!==null){clearTimeout(t);if(!e.target.closest('button'))window.togglePlanItem(ck.dataset.check);}};
       const mv=(ev)=>{if((Math.abs(ev.clientX-e.clientX)>6||Math.abs(ev.clientY-e.clientY)>6)&&t!==null){clearTimeout(t);t=null;row.removeEventListener('pointerup',up);row.removeEventListener('pointermove',mv);startDrag(e,row,list);}};
