@@ -231,9 +231,11 @@ function calcAch(mid,ds){
   const p=getPlan(mid,ds);
   if(p.isSpecialRest)return{type:'special'};
   if(p.isRest)return{type:'rest'};
-  const total=p.items.length;
-  if(!total)return{type:'empty'};
-  return{type:'progress',achieved:p.items.filter(i=>i.done).length,total};
+  if(!p.items.length)return{type:'empty'};
+  const wt=it=>Math.min(3,Math.max(1,it.weight||1));
+  const total=p.items.reduce((s,it)=>s+wt(it),0);
+  const achieved=p.items.filter(i=>i.done).reduce((s,it)=>s+wt(it),0);
+  return{type:'progress',achieved,total};
 }
 
 function calcPlanStatus(mid,ds){
