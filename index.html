@@ -476,18 +476,24 @@ window.capturePlan=function(){
     html2canvas(clone,{backgroundColor:'#0e1320',scale:2,useCORS:true,width:clone.offsetWidth,height:clone.scrollHeight}).then(async canvas=>{
       document.body.removeChild(clone);
       const fileName=`할일_${todayStr()}.png`;
-      // 모바일: 공유 시트로 갤러리 저장
-      if(navigator.canShare){
+      // 공유 시트 시도 (모바일, 카카오 인앱 포함)
+      if(navigator.share){
         try{
           const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
           const file=new File([blob],fileName,{type:'image/png'});
-          if(navigator.canShare({files:[file]})){
-            await navigator.share({files:[file],title:'오늘 할 일'});
+          await navigator.share({files:[file],title:'오늘 할 일'});
+          return;
+        }catch(e){
+          if(e.name==='AbortError')return; // 사용자가 취소한 경우
+          // 파일 공유 미지원 시 텍스트만 공유 시도
+          try{
+            const url=URL.createObjectURL(await new Promise(r=>canvas.toBlob(r,'image/png')));
+            await navigator.share({title:'오늘 할 일',url});
             return;
-          }
-        }catch(e){if(e.name==='AbortError')return;}
+          }catch(e2){}
+        }
       }
-      // 데스크탑 fallback: 파일 다운로드
+      // 데스크탑 fallback
       const a=document.createElement('a');
       a.download=fileName;
       a.href=canvas.toDataURL('image/png');
