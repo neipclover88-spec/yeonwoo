@@ -228,42 +228,18 @@ function genId(){return'p'+Date.now()+Math.floor(Math.random()*9999);}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function setSyncDot(ok){const el=document.getElementById('syncDot');el.textContent=ok?'● 실시간':'● 오류';el.classList.toggle('err',!ok);}
 
-let unsubMembers=null;
-let membersReady=false;
-
-function subscribeMembers(){
-  if(unsubMembers)unsubMembers();
-  membersReady=false;
-  unsubMembers=onSnapshot(doc(db,'miraclemorning','_members'),snap=>{
-    const data=snap.exists()?snap.data():null;
-    if(data?.v2===true&&Array.isArray(data.members)&&data.members.length>0){
-      // 새 포맷 정상 로드
-      members=data.members;
-    } else if(!membersReady){
-      // 구형/없음 → 기본값 저장 후 다음 snapshot에서 처리
-      membersReady=true;
-      members=[...DEFAULT_MEMBERS];
-      saveMembers();
-      return; // 저장 후 재발동되는 snapshot에서 렌더링
-    }
-    membersReady=true;
-    renderChips();
-    Object.values(unsubPlans).forEach(u=>u());
-    unsubPlans={};plansByMember={};
-    subscribePlans();
-    document.getElementById('loading').classList.add('hidden');
-  },()=>{
-    members=[...DEFAULT_MEMBERS];
-    renderChips();subscribePlans();
-    document.getElementById('loading').classList.add('hidden');
-  });
+// ── 멤버 관리 (localStorage) ────────────────────────
+function loadMembers(){
+  try{const r=localStorage.getItem('mm_members_v2');if(r){const p=JSON.parse(r);if(Array.isArray(p)&&p.length>0)return p;}}catch(e){}
+  return[...DEFAULT_MEMBERS];
 }
-
-async function saveMembers(){
-  const clean=members.map(({id,name,emoji})=>({id,name,emoji}));
-  await setDoc(doc(db,'miraclemorning','_members'),{v2:true,members:clean});
+function saveMembers(){
+  try{localStorage.setItem('mm_members_v2',JSON.stringify(members.map(({id,name,emoji})=>({id,name,emoji}))));}catch(e){}
+  renderChips();
+  Object.values(unsubPlans).forEach(u=>u());
+  unsubPlans={};plansByMember={};
+  subscribePlans();
 }
-
 window.deleteMember=function(id){
   members=members.filter(m=>m.id!==id);
   saveMembers();
@@ -679,7 +655,9 @@ document.getElementById('nextBtn').addEventListener('click',()=>{
   Object.values(unsubPlans).forEach(u=>u());unsubPlans={};plansByMember={};subscribePlans();
 });
 
-subscribeMembers();
+members=loadMembers();
+renderChips();
+subscribePlans();
 setTimeout(()=>document.getElementById('loading').classList.add('hidden'),3000);
 </script>
 </body>
