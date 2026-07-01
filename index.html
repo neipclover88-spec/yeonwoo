@@ -393,6 +393,25 @@ function renderCalendar(){
 window.openPlan=function(mid, dateStr){
   openMemberId=mid;
   planDateStr=dateStr||todayStr();
+  const isToday=planDateStr===todayStr();
+
+  // 오늘 플랜이 비어있으면 어제 항목 자동 이월
+  if(isToday){
+    const todayPlan=getPlan(mid,planDateStr);
+    if(todayPlan.items.length===0&&!todayPlan.isRest&&!todayPlan.isSpecialRest){
+      const yd=new Date();yd.setDate(yd.getDate()-1);
+      const yds=dStr(yd.getFullYear(),yd.getMonth(),yd.getDate());
+      const yPlan=getPlan(mid,yds);
+      if(yPlan.items.length>0){
+        const carried={
+          items:yPlan.items.map(it=>({...it,id:genId(),done:false,fail:false})),
+          isRest:false,isSpecialRest:false
+        };
+        savePlan(mid,planDateStr,carried);
+      }
+    }
+  }
+
   const mem=members.find(m=>m.id===mid);
   const[y,m,d]=planDateStr.split('-').map(Number);
   const days=['일','월','화','수','목','금','토'];const dt=new Date(y,m-1,d);
