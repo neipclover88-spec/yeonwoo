@@ -233,7 +233,9 @@ function subscribeMembers(){
   if(unsubMembers)unsubMembers();
   unsubMembers=onSnapshot(doc(db,'miraclemorning','_members'),snap=>{
     if(snap.exists()&&snap.data().members?.length){
-      members=snap.data().members;
+      // 이전 포맷의 active:false 멤버 제외, 새 포맷(active 없음)은 그대로
+      const loaded=snap.data().members.filter(m=>m.active!==false);
+      members=loaded.length>0?loaded:[...DEFAULT_MEMBERS];
     } else {
       members=[...DEFAULT_MEMBERS];
     }
@@ -250,7 +252,8 @@ function subscribeMembers(){
 }
 
 async function saveMembers(){
-  await setDoc(doc(db,'miraclemorning','_members'),{members});
+  const clean=members.map(({id,name,emoji})=>({id,name,emoji}));
+  await setDoc(doc(db,'miraclemorning','_members'),{members:clean});
 }
 
 window.deleteMember=function(id){
