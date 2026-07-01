@@ -126,6 +126,19 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   <span class="sync-dot" id="syncDot">● 연결 중</span>
 </nav>
 
+<!-- 날짜 클릭 멤버 선택 -->
+<div class="plan-overlay" id="dayPicker" onclick="if(event.target===this)window.closeDayPicker()">
+  <div class="plan-sheet" style="max-height:60vh">
+    <div class="plan-hdr">
+      <div class="plan-hdr-top">
+        <div id="dayPickerTitle" class="plan-mem-lbl" style="font-size:1rem"></div>
+        <button class="plan-close" onclick="window.closeDayPicker()">✕</button>
+      </div>
+    </div>
+    <div class="plan-body" style="gap:.5rem" id="dayPickerMembers"></div>
+  </div>
+</div>
+
 <div class="plan-overlay" id="planOverlay" onclick="if(event.target===this)window.closePlan()">
   <div class="plan-sheet" id="planCard">
     <div class="plan-hdr">
@@ -197,7 +210,7 @@ const PLAN_FINE=500, PLAN_TARGET=3;
 const now=new Date();
 let curYear=now.getFullYear(), curMonth=now.getMonth();
 const todayY=now.getFullYear(),todayM=now.getMonth(),todayD=now.getDate();
-let plansByMember={}, unsubPlans={}, openMemberId=null;
+let plansByMember={}, unsubPlans={}, openMemberId=null, planDateStr=todayStr();
 
 function todayStr(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function dStr(y,m,d){return`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
@@ -240,6 +253,33 @@ function calcRestUsage(mid,ds){
   const wk=Array.from({length:7},(_,i)=>{const x=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+i);return dStr(x.getFullYear(),x.getMonth(),x.getDate());});
   return{weekUsed:wk.filter(k=>mp[k]?.isRest).length,weekLimit:2,monthUsed:keys.filter(k=>mp[k]?.isSpecialRest).length,monthLimit:2};
 }
+
+// ── 날짜 클릭 → 멤버 선택 팝업 ─────────────────
+window.openDayPicker=function(ds){
+  const[y,m,d]=ds.split('-').map(Number);
+  const days=['일','월','화','수','목','금','토'];
+  const dt=new Date(y,m-1,d);
+  const dc=dt.getDay()===0?'#ff6b6b':dt.getDay()===6?'#4d96ff':'var(--text)';
+  const picker=document.getElementById('dayPicker');
+  document.getElementById('dayPickerTitle').innerHTML=
+    `<span style="color:${dc}">${m}월 ${d}일 ${days[dt.getDay()]}요일</span>`;
+  document.getElementById('dayPickerMembers').innerHTML=members.map(mem=>{
+    const ach=calcAch(mem.id,ds);
+    let stat='기록 없음';
+    if(ach.type==='rest') stat='😌 휴무';
+    else if(ach.type==='special') stat='🎁 특휴';
+    else if(ach.type==='progress') stat=`${ach.achieved}/${ach.total} 달성`;
+    return`<button onclick="window.closeDayPicker();window.openPlan('${mem.id}','${ds}')"
+      style="display:flex;align-items:center;gap:.6rem;width:100%;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:.7rem .9rem;cursor:pointer;text-align:left;transition:border-color .15s"
+      onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+      <span style="font-size:1.3rem">${mem.emoji}</span>
+      <span style="flex:1;font-size:.9rem;font-weight:600;color:var(--text)">${mem.name}</span>
+      <span style="font-size:.75rem;color:var(--muted)">${stat}</span>
+    </button>`;
+  }).join('');
+  picker.classList.add('show');
+};
+window.closeDayPicker=function(){document.getElementById('dayPicker').classList.remove('show');};
 
 function renderChips(){
   document.getElementById('memberChips').innerHTML=
@@ -342,18 +382,24 @@ function renderCalendar(){
       mems.appendChild(row);
     });
     cell.appendChild(mems);
+    cell.addEventListener('click',()=>window.openDayPicker(ds));
     grid.appendChild(cell);
   }
 }
 
-window.openPlan=function(mid){
+window.openPlan=function(mid, dateStr){
   openMemberId=mid;
+  planDateStr=dateStr||todayStr();
   const mem=members.find(m=>m.id===mid);
-  const today=todayStr();const[y,m,d]=today.split('-').map(Number);
+  const[y,m,d]=planDateStr.split('-').map(Number);
   const days=['일','월','화','수','목','금','토'];const dt=new Date(y,m-1,d);
   const dc=dt.getDay()===0?'#ff6b6b':dt.getDay()===6?'#4d96ff':'var(--muted)';
-  document.getElementById('planMemLbl').innerHTML=`<span>${mem.emoji}</span><span>${mem.name}의 오늘 할 일</span>`;
+  document.getElementById('planMemLbl').innerHTML=`<span>${mem.emoji}</span><span>${mem.name}의 할 일</span>`;
   document.getElementById('planDateLbl').innerHTML=`<span style="color:var(--text)">${m}월 ${d}일</span> <span style="color:${dc}">${days[dt.getDay()]}요일</span>`;
+  // 과거 날짜면 수정 버튼 숨김
+  const isToday=planDateStr===todayStr();
+  const captureBtn=document.querySelector('.plan-icon-btn');
+  if(captureBtn)captureBtn.style.display=isToday?'':'none';
   document.getElementById('planOverlay').classList.add('show');
   renderPlanBody();
 };
@@ -362,7 +408,8 @@ window.closePlan=function(){document.getElementById('planOverlay').classList.rem
 
 function renderPlanBody(){
   if(!openMemberId)return;
-  const today=todayStr();
+  const today=planDateStr;
+  const isToday=today===todayStr();
   const dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
   const ps=calcPlanStatus(openMemberId,today);
   const ru=calcRestUsage(openMemberId,today);
@@ -370,11 +417,15 @@ function renderPlanBody(){
   let b='';
 
   b+=`<div style="background:linear-gradient(135deg,rgba(245,200,30,.08),rgba(245,200,30,.02));border:1px solid rgba(245,200,30,.2);border-radius:10px;padding:10px 12px">
-    <div class="rest-btns">
+    ${isToday?`<div class="rest-btns">
       <button class="rest-btn" onclick="window.toggleRest('isRest')" style="${dp.isRest?'background:rgba(77,150,255,.18);border-color:#4d96ff;color:#4d96ff':''}">😌 휴무 ${dp.isRest?'✓':''}</button>
       <button class="rest-btn" onclick="window.toggleRest('isSpecialRest')" style="${dp.isSpecialRest?'background:rgba(168,85,247,.18);border-color:#a855f7;color:#a855f7':''}">🎁 특휴 ${dp.isSpecialRest?'✓':''}</button>
-    </div>
-    <div class="rest-usage">
+    </div>`:`<div style="font-size:.72rem;color:var(--muted);margin-bottom:4px">휴무 상태</div>
+    <div style="display:flex;gap:6px">
+      <span style="font-size:.8rem;padding:4px 10px;border-radius:6px;${dp.isRest?'background:rgba(77,150,255,.18);border:1px solid #4d96ff;color:#4d96ff':'background:var(--s2);border:1px solid var(--border);color:var(--muted)'}">😌 휴무 ${dp.isRest?'✓':''}</span>
+      <span style="font-size:.8rem;padding:4px 10px;border-radius:6px;${dp.isSpecialRest?'background:rgba(168,85,247,.18);border:1px solid #a855f7;color:#a855f7':'background:var(--s2);border:1px solid var(--border);color:var(--muted)'}">🎁 특휴 ${dp.isSpecialRest?'✓':''}</span>
+    </div>`}
+    <div class="rest-usage" style="margin-top:6px">
       <span>이번주 휴무 <b style="color:${ru.weekUsed>=ru.weekLimit?'#ff6b6b':'var(--text)'}">${ru.weekUsed}/${ru.weekLimit}</b></span>
       <span>이번달 특휴 <b style="color:${ru.monthUsed>=ru.monthLimit?'#ff6b6b':'var(--text)'}">${ru.monthUsed}/${ru.monthLimit}</b></span>
     </div>
@@ -383,8 +434,11 @@ function renderPlanBody(){
   if(!dp.isRest&&!dp.isSpecialRest){
     b+=`<div style="display:flex;flex-direction:column;gap:4px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
-        <span style="font-size:.72rem;color:var(--muted)">오늘 목표 (${dp.items.length}개)</span>
-        <span style="font-size:.62rem;color:var(--muted)">탭=체크 · ✏️=수정 · ✗=못함 · ✕=삭제</span>
+        <span style="font-size:.72rem;color:var(--muted)">목표 (${dp.items.length}개)</span>
+        ${isToday
+          ?`<span style="font-size:.62rem;color:var(--muted)">탭=체크 · ✏️=수정 · ✗=못함 · ✕=삭제</span>`
+          :`<span style="font-size:.62rem;color:var(--muted);opacity:.6">📅 지난 날 기록</span>`
+        }
       </div>
       <div id="planItemList" style="display:flex;flex-direction:column;gap:4px">
       ${dp.items.map(it=>{
@@ -392,22 +446,24 @@ function renderPlanBody(){
         const bg=dn?'rgba(0,229,160,.07)':fl?'rgba(255,107,107,.07)':'rgba(255,255,255,.02)';
         const bd=dn?'rgba(0,229,160,.2)':fl?'rgba(255,107,107,.2)':'var(--border)';
         const tc=dn?'#00e5a0':fl?'rgba(255,107,107,.5)':'var(--text)';
-        return`<div class="plan-item-row" data-id="${it.id}" style="background:${bg};border:1px solid ${bd}">
+        return`<div class="plan-item-row" data-id="${it.id}" style="background:${bg};border:1px solid ${bd};cursor:${isToday?'grab':'default'}">
           <div data-check="${it.id}" class="plan-chk" style="border-color:${dn?'#00e5a0':fl?'rgba(255,107,107,.3)':'var(--muted)'};background:${dn?'#00e5a0':'none'};color:#0d0f1a">${dn?'✓':''}</div>
           <div style="flex:1;min-width:0;display:flex;align-items:center;gap:4px">
             <span class="plan-item-text" style="flex:1;color:${tc};text-decoration:${dn||fl?'line-through':'none'};line-height:1.3;word-break:break-all">${esc(it.name)}</span>
             ${ed?`<span style="font-size:.52rem;color:#ffd93d;opacity:.65;flex-shrink:0;white-space:nowrap">✏수정</span>`:''}
           </div>
+          ${isToday?`
           <button data-edit="${it.id}" class="plan-edit-btn" title="수정">✏</button>
           <button data-fail="${it.id}" class="plan-fail-btn" style="border-color:${fl?'#ff6b6b':'var(--muted)'};background:${fl?'#ff6b6b':'none'};color:${fl?'#fff':'var(--muted)'}">✗</button>
           <button data-del="${it.id}" class="plan-del-btn" style="border-color:var(--muted);color:var(--muted);opacity:.4">✕</button>
+          `:''}
         </div>`;
-      }).join('')||`<div style="font-size:.8rem;color:var(--muted);padding:4px 0">할 일을 추가해보세요</div>`}
+      }).join('')||`<div style="font-size:.8rem;color:var(--muted);padding:4px 0">${isToday?'할 일을 추가해보세요':'기록 없음'}</div>`}
       </div>
-      <div class="plan-add-row">
+      ${isToday?`<div class="plan-add-row">
         <input class="plan-add-inp" id="planItemInp" type="text" placeholder="할 일 추가... (여러 줄 붙여넣기 가능)" onkeydown="if(event.key==='Enter')window.addPlanItem()" onpaste="window.handlePaste(event)">
         <button class="plan-add-btn" onclick="window.addPlanItem()">+</button>
-      </div>
+      </div>`:''}
     </div>
     <div class="clover-box">
       <div class="clover-row">
@@ -503,7 +559,7 @@ function renderPlanBody(){
 
 window.toggleRest=function(field){
   if(!openMemberId)return;
-  const today=todayStr(),dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
+  const today=planDateStr,dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
   dp[field]=!dp[field];
   if(field==='isRest'&&dp.isRest)dp.isSpecialRest=false;
   if(field==='isSpecialRest'&&dp.isSpecialRest)dp.isRest=false;
@@ -512,14 +568,14 @@ window.toggleRest=function(field){
 
 window.togglePlanItem=function(id){
   if(!openMemberId)return;
-  const today=todayStr(),dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
+  const today=planDateStr,dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
   const it=dp.items.find(i=>i.id===id);if(it){it.done=!it.done;if(it.done)it.fail=false;}
   savePlan(openMemberId,today,dp);renderPlanBody();
 };
 
 window.failPlanItem=function(id){
   if(!openMemberId)return;
-  const today=todayStr(),dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
+  const today=planDateStr,dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
   const it=dp.items.find(i=>i.id===id);if(it){it.fail=!it.fail;if(it.fail)it.done=false;}
   savePlan(openMemberId,today,dp);renderPlanBody();
 };
@@ -530,7 +586,7 @@ window.handlePaste=function(e){
   if(lines.length<=1)return;
   e.preventDefault();
   if(!openMemberId)return;
-  const today=todayStr(),dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
+  const today=planDateStr,dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
   lines.forEach(function(name){dp.items.push({id:genId(),name:name,done:false});});
   document.getElementById('planItemInp').value='';
   savePlan(openMemberId,today,dp);renderPlanBody();
@@ -539,14 +595,14 @@ window.handlePaste=function(e){
 window.addPlanItem=function(){
   if(!openMemberId)return;
   const inp=document.getElementById('planItemInp'),name=inp?.value.trim();if(!name)return;
-  const today=todayStr(),dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
+  const today=planDateStr,dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
   dp.items.push({id:genId(),name,done:false});inp.value='';
   savePlan(openMemberId,today,dp);renderPlanBody();
 };
 
 window.editPlanItem=function(id){
   if(!openMemberId)return;
-  const today=todayStr();
+  const today=planDateStr;
   const dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
   const it=dp.items.find(i=>i.id===id);
   if(!it)return;
@@ -613,7 +669,7 @@ window.editPlanItem=function(id){
 
 window.delPlanItem=function(id){
   if(!openMemberId)return;
-  const today=todayStr(),dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
+  const today=planDateStr,dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
   dp.items=dp.items.filter(i=>i.id!==id);savePlan(openMemberId,today,dp);renderPlanBody();
 };
 
@@ -731,7 +787,7 @@ function startDrag(e,row,list){
     Object.assign(row.style,{position:'',zIndex:'',boxShadow:'',transform:'',transition:''});
     others.forEach(r=>{r.style.transform='';r.style.transition='';delete r.dataset.sh;});
     if(ti!==mi&&openMemberId){
-      const today=todayStr(),dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
+      const today=planDateStr,dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
       const fi=dp.items.findIndex(i=>i.id===rows[mi].dataset.id);
       if(fi>=0){const[item]=dp.items.splice(fi,1);dp.items.splice(Math.max(0,Math.min(dp.items.length,ti)),0,item);savePlan(openMemberId,today,dp);}
     }
