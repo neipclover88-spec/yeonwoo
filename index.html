@@ -127,6 +127,19 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 </nav>
 
 <!-- 날짜 클릭 멤버 선택 -->
+<!-- 이모지 선택 팝업 -->
+<div class="plan-overlay" id="emojiPickerOverlay" onclick="if(event.target===this)window.closeEmojiPicker()">
+  <div class="plan-sheet" style="max-height:70vh">
+    <div class="plan-hdr">
+      <div class="plan-hdr-top">
+        <div class="plan-mem-lbl" style="font-size:.95rem">✨ 이모지 선택</div>
+        <button class="plan-close" onclick="window.closeEmojiPicker()">✕</button>
+      </div>
+    </div>
+    <div class="plan-body" id="emojiPickerBody" style="gap:.6rem"></div>
+  </div>
+</div>
+
 <div class="plan-overlay" id="dayPicker" onclick="if(event.target===this)window.closeDayPicker()">
   <div class="plan-sheet" style="max-height:60vh">
     <div class="plan-hdr">
@@ -250,6 +263,45 @@ function calcRestUsage(mid,ds){
   return{weekUsed:wk.filter(k=>mp[k]?.isRest).length,weekLimit:2,monthUsed:keys.filter(k=>mp[k]?.isSpecialRest).length,monthLimit:2};
 }
 
+const EMOJI_CATEGORIES=[
+  {label:'얼굴·사람',emojis:['😊','😎','🥳','🤩','😴','🤔','🥰','😆','🤗','😇','🥺','😤','🧐','🤓','😏','🤠','🥸','🫡']},
+  {label:'동물',emojis:['🐻','🐯','🦁','🐸','🦊','🐺','🐼','🐨','🦋','🐝','🦄','🐉','🦅','🦉','🐬','🦈','🐙','🦔','🐧','🦚']},
+  {label:'식물·자연',emojis:['🍀','🌿','🌸','🌺','🌻','🌹','🍁','🌴','🎋','🌾','🍄','🌵','🌙','☀️','⭐','🌈','❄️','🔥','💧','🌊']},
+  {label:'음식',emojis:['🍎','🍊','🍋','🍇','🍓','🍑','🫐','🥝','🍕','🍔','🍜','🍣','🎂','🍩','🧋','☕','🍵','🥤','🍺','🎃']},
+  {label:'사물·기타',emojis:['💎','👑','🎯','🚀','💡','🎨','🎭','🎪','🏆','🎸','🎹','📚','🔮','⚡','💫','🌟','💥','🎁','🎵','🦋']},
+];
+
+let _emojiPickerTargetId=null;
+
+window.openEmojiPicker=function(memberId){
+  _emojiPickerTargetId=memberId;
+  const body=document.getElementById('emojiPickerBody');
+  body.innerHTML=EMOJI_CATEGORIES.map(cat=>`
+    <div>
+      <div style="font-size:.65rem;color:var(--muted);letter-spacing:.5px;margin-bottom:5px">${cat.label}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">
+        ${cat.emojis.map(e=>`<button onclick="window.selectEmoji('${e}')"
+          style="background:var(--s2);border:1px solid var(--border);border-radius:8px;width:38px;height:38px;font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .1s"
+          onmouseover="this.style.background='rgba(0,229,160,.15)';this.style.borderColor='var(--accent)'"
+          onmouseout="this.style.background='var(--s2)';this.style.borderColor='var(--border)'">${e}</button>`).join('')}
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('emojiPickerOverlay').classList.add('show');
+};
+
+window.closeEmojiPicker=function(){
+  document.getElementById('emojiPickerOverlay').classList.remove('show');
+  _emojiPickerTargetId=null;
+};
+
+window.selectEmoji=function(emoji){
+  if(!_emojiPickerTargetId)return;
+  const mem=members.find(m=>m.id===_emojiPickerTargetId);
+  if(mem){mem.emoji=emoji;saveMembers();renderChips();}
+  window.closeEmojiPicker();
+};
+
 // ── 날짜 클릭 → 멤버 선택 팝업 ─────────────────
 window.openDayPicker=function(ds){
   const[y,m,d]=ds.split('-').map(Number);
@@ -280,7 +332,8 @@ window.closeDayPicker=function(){document.getElementById('dayPicker').classList.
 function renderChips(){
   document.getElementById('memberChips').innerHTML=
     members.map(m=>`<div class="member-chip" onclick="window.openPlan('${m.id}')">
-      <span class="member-emoji">${m.emoji}</span><span>${m.name}</span>
+      <span class="member-emoji" onclick="event.stopPropagation();window.openEmojiPicker('${m.id}')" style="cursor:pointer;padding:2px;border-radius:6px;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.1)'" onmouseout="this.style.background=''">${m.emoji}</span>
+      <span>${m.name}</span>
       <span onclick="event.stopPropagation();window.removeMember('${m.id}')"
         style="font-size:.6rem;color:var(--muted);opacity:.5;margin-left:3px;padding:2px 3px;border-radius:3px;cursor:pointer"
         onmouseover="this.style.opacity=1;this.style.color='#ff6b6b'"
