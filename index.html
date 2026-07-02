@@ -507,9 +507,10 @@ function renderPlanBody(){
         const N=clovers.length;
         if(N===0)return'';
         // 겹치기 계산: 5개 이하는 간격, 초과하면 점점 겹침
-        const SZ=42; // px (2.6rem)
-        const MAXW=280;
-        const spacing=N<=5?SZ+6:Math.max(16,(MAXW-SZ)/(N-1));
+        const SZ=42;
+        const MAXW=Math.min(window.innerWidth-72,320); // 실제 가용 너비
+        const naturalW=N*(SZ+6); // 겹치지 않을 때 필요한 너비
+        const spacing=naturalW<=MAXW?SZ+6:Math.max(16,(MAXW-SZ)/(N-1));
         const totalW=N===1?SZ:Math.min(MAXW,SZ+spacing*(N-1));
         const clovHtml=clovers.map((c,i)=>{
           const left=i*spacing;
