@@ -314,7 +314,10 @@ function subscribeMembers(){
     doc(db,'miraclemorning','_members_v2'),
     {includeMetadataChanges:true},
     snap=>{
-      if(snap.metadata.hasPendingWrites)return; // 내 쓰기는 무시
+      if(snap.metadata.hasPendingWrites){
+        document.getElementById('loading').classList.add('hidden');
+        return;
+      }
       const data=snap.exists()?snap.data():null;
       if(data?.members?.length){
         members=data.members;
@@ -374,6 +377,10 @@ window.toggleAddForm=function(){
 window.removeMember=function(id){
   if(members.length<=1)return;
   members=members.filter(m=>m.id!==id);
+  // Firestore 기다리지 않고 즉시 렌더
+  if(unsubPlans[id]){unsubPlans[id]();delete unsubPlans[id];delete plansByMember[id];}
+  renderChips();
+  renderCalendar();
   saveMembers();
 };
 
