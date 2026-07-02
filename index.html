@@ -318,6 +318,22 @@ function subscribeMembers(){
       const data=snap.exists()?snap.data():null;
       if(data?.members?.length){
         members=data.members;
+        // localStorage에 기본ID 아닌 멤버 있으면 자동 병합 (카롱 등 기존 기기 사용자)
+        try{
+          const raw=localStorage.getItem('mm_members');
+          if(raw){
+            const local=JSON.parse(raw);
+            const defaultIds=DEFAULT_MEMBERS.map(m=>m.id);
+            let changed=false;
+            local.forEach(lm=>{
+              if(lm.id&&lm.name&&!defaultIds.includes(lm.id)&&!members.find(m=>m.id===lm.id)){
+                members.push({id:lm.id,name:lm.name,emoji:lm.emoji||'👤'});
+                changed=true;
+              }
+            });
+            if(changed){saveMembers();return;}
+          }
+        }catch(e){}
       } else {
         members=[...DEFAULT_MEMBERS];
         saveMembers();
