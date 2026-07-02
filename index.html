@@ -191,18 +191,8 @@ const MEMBERS=[
   {id:'karo',  name:'카로',  emoji:'🫒'},
   {id:'yeonwoo',name:'연우', emoji:'🍀'},
 ];
-// localStorage에서 멤버 로드 (없으면 기본값)
-function loadMembers(){
-  try{
-    const r=localStorage.getItem('mm_members');
-    if(r){const p=JSON.parse(r);if(Array.isArray(p)&&p.length>0)return p;}
-  }catch(e){}
-  return[...MEMBERS];
-}
-function persistMembers(){
-  try{localStorage.setItem('mm_members',JSON.stringify(members));}catch(e){}
-}
-let members=loadMembers();
+let members=[...DEFAULT_MEMBERS];
+let unsubMembers=null;
 const HOLIDAYS={"2026":{"0":{1:"신정"},"1":{16:"설날연휴",17:"설날",18:"설날연휴"},"2":{1:"삼일절"},"4":{5:"어린이날",25:"부처님오신날"},"5":{6:"현충일"},"7":{15:"광복절"},"8":{24:"추석연휴",25:"추석",26:"추석연휴"},"9":{3:"개천절",9:"한글날"},"11":{25:"크리스마스"}},"2025":{"0":{1:"신정"},"1":{28:"설날연휴",29:"설날",30:"설날연휴"},"2":{1:"삼일절"},"4":{5:"어린이날",6:"대체공휴일"},"5":{6:"현충일"},"7":{15:"광복절"},"9":{3:"개천절",5:"추석연휴",6:"추석",7:"추석연휴",8:"대체공휴일",9:"한글날"},"11":{25:"크리스마스"}}};
 function getHol(y,m,d){return HOLIDAYS[String(y)]?.[String(m)]?.[d]||null;}
 
@@ -301,21 +291,74 @@ function renderChips(){
     </div>`;
 }
 
-// ── 멤버 추가/삭제 ──
-window.removeMember=function(id){
-  if(members.length<=1)return;
-  members=members.filter(m=>m.id!==id);
-  persistMembers();
-  renderChips();
+// ── 멤버 관리 (Firestore 공유) ──────────────────
+async function saveMembers(){
+  const clean=members.map(({id,name,emoji})=>({id,name,emoji}));
+  await setDoc(doc(db,'miraclemorning','_members_v2'),{members:clean});
+}
+
+function subscribeOnePlan(mid){
+  if(unsubPlans[mid])return;
+  unsubPlans[mid]=onSnapshot(doc(db,'miraclemorning',pdocId(mid,curYear,curMonth)),snap=>{
+    plansByMember[mid]=snap.exists()?snap.data():{};
+    renderCalendar();
+    if(openMemberId===mid&&document.getElementById('planOverlay').classList.contains('show'))renderPlanBody();
+    document.getElementById('loading').classList.add('hidden');
+    setSyncDot(true);
+  },()=>setSyncDot(false));
+}
+
+function subscribeMembers(){
+  if(unsubMembers)unsubMembers();
+  unsubMembers=onSnapshot(
+    doc(db,'miraclemorning','_members_v2'),
+    {includeMetadataChanges:true},
+    snap=>{
+      if(snap.metadata.hasPendingWrites)return; // 내 쓰기는 무시
+      const data=snap.exists()?snap.data():null;
+      if(data?.members?.length){
+        members=data.members;
+      } else {
+        members=[...DEFAULT_MEMBERS];
+        saveMembers();
+        return;
+      }
+      renderChips();
+      // 새 멤버만 구독 추가, 없어진 멤버만 해제
+      const ids=members.map(m=>m.id);
+      Object.keys(unsubPlans).forEach(id=>{
+        if(!ids.includes(id)){unsubPlans[id]();delete unsubPlans[id];delete plansByMember[id];}
+      });
+      members.forEach(mem=>{subscribeOnePlan(mem.id);});
+      renderCalendar();
+      document.getElementById('loading').classList.add('hidden');
+    },
+    ()=>{
+      members=[...DEFAULT_MEMBERS];
+      renderChips();
+      members.forEach(mem=>subscribeOnePlan(mem.id));
+      document.getElementById('loading').classList.add('hidden');
+    }
+  );
+}
+
+function subscribePlans(){
+  // 월 이동 시 플랜 재구독
   Object.values(unsubPlans).forEach(u=>u());
   unsubPlans={};plansByMember={};
-  subscribePlans();
-};
+  members.forEach(mem=>subscribeOnePlan(mem.id));
+}
 
 window.toggleAddForm=function(){
   const f=document.getElementById('addMemberForm');
   f.style.display=f.style.display==='none'?'flex':'none';
   if(f.style.display==='flex') document.getElementById('newName').focus();
+};
+
+window.removeMember=function(id){
+  if(members.length<=1)return;
+  members=members.filter(m=>m.id!==id);
+  saveMembers();
 };
 
 window.submitAddMember=function(){
@@ -324,36 +367,11 @@ window.submitAddMember=function(){
   if(!name)return;
   const id='m'+Date.now();
   members.push({id,name,emoji});
-  persistMembers();
+  saveMembers();
   document.getElementById('newName').value='';
   document.getElementById('newEmoji').value='';
   document.getElementById('addMemberForm').style.display='none';
-  renderChips();
-  // 새 멤버 플랜 구독 추가
-  const mem=members.find(m=>m.id===id);
-  unsubPlans[id]=onSnapshot(doc(db,'miraclemorning',pdocId(id,curYear,curMonth)),snap=>{
-    plansByMember[id]=snap.exists()?snap.data():{};
-    renderCalendar();
-  },()=>{});
-  renderCalendar();
 };
-
-function subscribePlans(){
-  members.forEach(mem=>{
-    if(unsubPlans[mem.id])unsubPlans[mem.id]();
-    unsubPlans[mem.id]=onSnapshot(doc(db,'miraclemorning',pdocId(mem.id,curYear,curMonth)),snap=>{
-      plansByMember[mem.id]=snap.exists()?snap.data():{};
-      renderCalendar();
-      if(openMemberId===mem.id&&document.getElementById('planOverlay').classList.contains('show'))renderPlanBody();
-      document.getElementById('loading').classList.add('hidden');
-      setSyncDot(true);
-    },err=>{
-      console.error('Firestore error:',err);
-      document.getElementById('loading').classList.add('hidden');
-      setSyncDot(false);
-    });
-  });
-}
 
 function renderCalendar(){
   const mn=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
@@ -855,8 +873,7 @@ document.getElementById('nextBtn').addEventListener('click',()=>{
   Object.values(unsubPlans).forEach(u=>u());unsubPlans={};plansByMember={};subscribePlans();
 });
 
-renderChips();
-subscribePlans();
+subscribeMembers();
 setTimeout(()=>document.getElementById('loading').classList.add('hidden'),3000);
 </script>
 </body>
