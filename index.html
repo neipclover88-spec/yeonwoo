@@ -349,8 +349,7 @@ function subscribeMembers(){
     members.forEach(mem=>subscribeOnePlan(mem.id));
     renderCalendar();
     document.getElementById('loading').classList.add('hidden');
-  };
-  ,()=>{
+  },()=>{
     members=[...DEFAULT_MEMBERS];
     renderChips();
     members.forEach(mem=>subscribeOnePlan(mem.id));
