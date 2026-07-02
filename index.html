@@ -191,7 +191,8 @@ const MEMBERS=[
   {id:'karo',  name:'카로',  emoji:'🫒'},
   {id:'yeonwoo',name:'연우', emoji:'🍀'},
 ];
-let members=[...DEFAULT_MEMBERS];
+const DEFAULT_MEMBERS=MEMBERS;
+let members=[...MEMBERS];
 let unsubMembers=null;
 const HOLIDAYS={"2026":{"0":{1:"신정"},"1":{16:"설날연휴",17:"설날",18:"설날연휴"},"2":{1:"삼일절"},"4":{5:"어린이날",25:"부처님오신날"},"5":{6:"현충일"},"7":{15:"광복절"},"8":{24:"추석연휴",25:"추석",26:"추석연휴"},"9":{3:"개천절",9:"한글날"},"11":{25:"크리스마스"}},"2025":{"0":{1:"신정"},"1":{28:"설날연휴",29:"설날",30:"설날연휴"},"2":{1:"삼일절"},"4":{5:"어린이날",6:"대체공휴일"},"5":{6:"현충일"},"7":{15:"광복절"},"9":{3:"개천절",5:"추석연휴",6:"추석",7:"추석연휴",8:"대체공휴일",9:"한글날"},"11":{25:"크리스마스"}}};
 function getHol(y,m,d){return HOLIDAYS[String(y)]?.[String(m)]?.[d]||null;}
@@ -308,28 +309,25 @@ function subscribeOnePlan(mid){
   },()=>setSyncDot(false));
 }
 
+let _membersMigrated=false;
 function subscribeMembers(){
   if(unsubMembers)unsubMembers();
-  unsubMembers=onSnapshot(
-    doc(db,'miraclemorning','_members_v2'),
-    {includeMetadataChanges:true},
-    snap=>{
-      if(snap.metadata.hasPendingWrites){
-        document.getElementById('loading').classList.add('hidden');
-        return;
-      }
-      const data=snap.exists()?snap.data():null;
-      if(data?.members?.length){
-        members=data.members;
-        // localStorage에 기본ID 아닌 멤버 있으면 자동 병합 (카롱 등 기존 기기 사용자)
+  const r=onSnapshot(doc(db,'miraclemorning','_members_v2'),{includeMetadataChanges:true},snap=>{
+    if(snap.metadata.hasPendingWrites){document.getElementById('loading').classList.add('hidden');return;}
+    const data=snap.exists()?snap.data():null;
+    if(data?.members?.length){
+      members=data.members;
+      // 최초 1회: localStorage 비기본 멤버 자동 병합
+      if(!_membersMigrated){
+        _membersMigrated=true;
         try{
           const raw=localStorage.getItem('mm_members');
           if(raw){
             const local=JSON.parse(raw);
-            const defaultIds=DEFAULT_MEMBERS.map(m=>m.id);
+            const defIds=DEFAULT_MEMBERS.map(m=>m.id);
             let changed=false;
             local.forEach(lm=>{
-              if(lm.id&&lm.name&&!defaultIds.includes(lm.id)&&!members.find(m=>m.id===lm.id)){
+              if(lm.id&&lm.name&&!defIds.includes(lm.id)&&!members.find(m=>m.id===lm.id)){
                 members.push({id:lm.id,name:lm.name,emoji:lm.emoji||'👤'});
                 changed=true;
               }
@@ -337,32 +335,31 @@ function subscribeMembers(){
             if(changed){saveMembers();return;}
           }
         }catch(e){}
-      } else {
-        members=[...DEFAULT_MEMBERS];
-        saveMembers();
-        return;
       }
-      renderChips();
-      // 새 멤버만 구독 추가, 없어진 멤버만 해제
-      const ids=members.map(m=>m.id);
-      Object.keys(unsubPlans).forEach(id=>{
-        if(!ids.includes(id)){unsubPlans[id]();delete unsubPlans[id];delete plansByMember[id];}
-      });
-      members.forEach(mem=>{subscribeOnePlan(mem.id);});
-      renderCalendar();
-      document.getElementById('loading').classList.add('hidden');
-    },
-    ()=>{
+    } else {
       members=[...DEFAULT_MEMBERS];
-      renderChips();
-      members.forEach(mem=>subscribeOnePlan(mem.id));
-      document.getElementById('loading').classList.add('hidden');
+      saveMembers();
+      return;
     }
-  );
+    renderChips();
+    const ids=members.map(m=>m.id);
+    Object.keys(unsubPlans).forEach(id=>{
+      if(!ids.includes(id)){unsubPlans[id]();delete unsubPlans[id];delete plansByMember[id];}
+    });
+    members.forEach(mem=>subscribeOnePlan(mem.id));
+    renderCalendar();
+    document.getElementById('loading').classList.add('hidden');
+  };
+  ,()=>{
+    members=[...DEFAULT_MEMBERS];
+    renderChips();
+    members.forEach(mem=>subscribeOnePlan(mem.id));
+    document.getElementById('loading').classList.add('hidden');
+  });
+  unsubMembers=()=>r();
 }
 
 function subscribePlans(){
-  // 월 이동 시 플랜 재구독
   Object.values(unsubPlans).forEach(u=>u());
   unsubPlans={};plansByMember={};
   members.forEach(mem=>subscribeOnePlan(mem.id));
@@ -896,8 +893,14 @@ document.getElementById('nextBtn').addEventListener('click',()=>{
   Object.values(unsubPlans).forEach(u=>u());unsubPlans={};plansByMember={};subscribePlans();
 });
 
-subscribeMembers();
-setTimeout(()=>document.getElementById('loading').classList.add('hidden'),3000);
+// 즉시 기본 렌더링 — 에러나도 로딩 반드시 숨김
+try{renderChips();}catch(e){console.error('renderChips:',e);}
+try{members.forEach(mem=>subscribeOnePlan(mem.id));}catch(e){console.error('subscribeOnePlan:',e);}
+try{renderCalendar();}catch(e){console.error('renderCalendar:',e);}
+document.getElementById('loading').classList.add('hidden');
+// Realtime DB에서 멤버 동기화
+try{subscribeMembers();}catch(e){console.error('subscribeMembers:',e);}
+setTimeout(()=>document.getElementById('loading').classList.add('hidden'),2000);
 </script>
 </body>
 </html>
