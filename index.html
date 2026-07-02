@@ -507,18 +507,18 @@ function renderPlanBody(){
         const N=clovers.length;
         if(N===0)return'';
         // 겹치기 계산: 5개 이하는 간격, 초과하면 점점 겹침
-        const SZ=32; // px (2rem)
-        const MAXW=260;
-        const spacing=N<=5?SZ+6:Math.max(13,(MAXW-SZ)/(N-1));
+        const SZ=42; // px (2.6rem)
+        const MAXW=280;
+        const spacing=N<=5?SZ+6:Math.max(16,(MAXW-SZ)/(N-1));
         const totalW=N===1?SZ:Math.min(MAXW,SZ+spacing*(N-1));
         const clovHtml=clovers.map((c,i)=>{
           const left=i*spacing;
-          const base=`position:absolute;left:${left}px;top:0;font-size:2rem;line-height:1;z-index:${i+1}`;
+          const base=`position:absolute;left:${left}px;top:0;font-size:2.6rem;line-height:1;z-index:${i+1}`;
           if(c.fail)return`<span style="${base};opacity:.5;display:inline-block"><span>🍀</span><span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:900;color:#ff6b6b">✕</span></span>`;
           if(c.done)return`<span style="${base};filter:drop-shadow(0 0 5px rgba(0,229,160,.5))">🍀</span>`;
           return`<span style="${base};opacity:.15">🍀</span>`;
         }).join('');
-        return`<div style="position:relative;height:${SZ}px;width:${totalW}px;margin:0 auto 8px">${clovHtml}</div>`;
+        return`<div style="position:relative;height:${SZ+6}px;width:${totalW}px;margin:0 auto 8px">${clovHtml}</div>`;
       })()}
       <div class="clover-stat">${ps.achieved}/${ps.total} 달성${ps.failed>0?` <span style="color:#ff6b6b;font-size:.85rem">✗${ps.failed}</span>`:''}</div>
       <div class="fine-row">
