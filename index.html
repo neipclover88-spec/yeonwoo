@@ -579,15 +579,15 @@ function renderPlanBody(){
   let b='';
 
   b+=`<div style="background:linear-gradient(135deg,rgba(245,200,30,.08),rgba(245,200,30,.02));border:1px solid rgba(245,200,30,.2);border-radius:10px;padding:10px 12px">
-    ${isToday?`<div class="rest-btns">
+    <div class="rest-btns">
       <button class="rest-btn" onclick="window.toggleRest('isRest')" style="${dp.isRest?'background:rgba(77,150,255,.18);border-color:#4d96ff;color:#4d96ff':''}">😌 휴무 ${dp.isRest?'✓':''}</button>
       <button class="rest-btn" onclick="window.toggleRest('isSpecialRest')" style="${dp.isSpecialRest?'background:rgba(168,85,247,.18);border-color:#a855f7;color:#a855f7':''}">🎁 특휴 ${dp.isSpecialRest?'✓':''}</button>
-    </div>`:`<div style="font-size:.72rem;color:var(--muted);margin-bottom:4px">휴무 상태</div>
-    <div style="display:flex;gap:6px">
-      <span style="font-size:.8rem;padding:4px 10px;border-radius:6px;${dp.isRest?'background:rgba(77,150,255,.18);border:1px solid #4d96ff;color:#4d96ff':'background:var(--s2);border:1px solid var(--border);color:var(--muted)'}">😌 휴무 ${dp.isRest?'✓':''}</span>
-      <span style="font-size:.8rem;padding:4px 10px;border-radius:6px;${dp.isSpecialRest?'background:rgba(168,85,247,.18);border:1px solid #a855f7;color:#a855f7':'background:var(--s2);border:1px solid var(--border);color:var(--muted)'}">🎁 특휴 ${dp.isSpecialRest?'✓':''}</span>
-    </div>`}
-    <div class="rest-usage" style="margin-top:6px">
+    </div>
+    
+    
+    
+    
+    
       <span>이번주 휴무 <b style="color:${ru.weekUsed>=ru.weekLimit?'#ff6b6b':'var(--text)'}">${ru.weekUsed}/${ru.weekLimit}</b></span>
       <span>이번달 특휴 <b style="color:${ru.monthUsed>=ru.monthLimit?'#ff6b6b':'var(--text)'}">${ru.monthUsed}/${ru.monthLimit}</b></span>
     </div>
@@ -597,10 +597,10 @@ function renderPlanBody(){
     b+=`<div style="display:flex;flex-direction:column;gap:4px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
         <span style="font-size:.72rem;color:var(--muted)">목표 (${dp.items.length}개)</span>
-        ${isToday
-          ?`<span style="font-size:.62rem;color:var(--muted)">탭=체크 · ✏️=수정 · ✗=못함 · ✕=삭제</span>`
-          :`<span style="font-size:.62rem;color:var(--muted);opacity:.6">📅 지난 날 기록</span>`
-        }
+        <span style="font-size:.62rem;color:var(--muted)">탭=체크 · ✏️=수정 · ✗=못함 · ✕=삭제</span>
+
+
+
       </div>
       <div id="planItemList" style="display:flex;flex-direction:column;gap:6px;padding-top:4px">
       ${dp.items.map(it=>{
@@ -610,26 +610,26 @@ function renderPlanBody(){
         const tc=dn?'#00e5a0':fl?'rgba(255,107,107,.5)':'var(--text)';
         return`<div class="plan-item-row" data-id="${it.id}" style="position:relative;background:${bg};border:1px solid ${bd};cursor:default;touch-action:auto">
           ${(it.weight||1)>1?`<span style="position:absolute;top:-7px;left:30px;font-size:.58rem;color:#ffd93d;background:rgba(13,15,26,.95);padding:0 3px;border-radius:3px;line-height:1.4;letter-spacing:1px;pointer-events:none">${'★'.repeat(it.weight||1)}</span>`:''}
-          ${isToday?`<span class="drag-handle" style="font-size:.9rem;color:var(--muted);opacity:.35;cursor:grab;flex-shrink:0;padding:0 3px;touch-action:none;user-select:none">⠿</span>`:''}
+          <span class="drag-handle" style="font-size:.9rem;color:var(--muted);opacity:.35;cursor:grab;flex-shrink:0;padding:0 3px;touch-action:none;user-select:none">⠿</span>
           <div data-check="${it.id}" class="plan-chk" style="border-color:${dn?'#00e5a0':fl?'rgba(255,107,107,.3)':'var(--muted)'};background:${dn?'#00e5a0':'none'};color:#0d0f1a;cursor:pointer">${dn?'✓':''}</div>
           <div style="flex:1;min-width:0;display:flex;align-items:center;gap:4px">
             <span class="plan-item-text" style="flex:1;color:${tc};text-decoration:${dn||fl?'line-through':'none'};line-height:1.3;word-break:break-all">${esc(it.name)}</span>
             ${ed?`<span style="font-size:.52rem;color:#ffd93d;opacity:.65;flex-shrink:0;white-space:nowrap">✏수정</span>`:''}
           </div>
-          ${isToday?`
+          
           <button data-weight="${it.id}" style="background:none;border:none;cursor:pointer;font-size:.72rem;padding:0 2px;color:#ffd93d;flex-shrink:0;letter-spacing:-1px;min-width:18px" title="가중치">${'★'.repeat(it.weight||1)}</button>
           <button data-edit="${it.id}" class="plan-edit-btn" title="수정">✏</button>
           <button data-fail="${it.id}" class="plan-fail-btn" style="border-color:${fl?'#ff6b6b':'var(--muted)'};background:${fl?'#ff6b6b':'none'};color:${fl?'#fff':'var(--muted)'}">✗</button>
           <button data-del="${it.id}" class="plan-del-btn" style="border-color:var(--muted);color:var(--muted);opacity:.4">✕</button>
-          `:``}
-        </div>`;
-      }).join('')||`<div style="font-size:.8rem;color:var(--muted);padding:4px 0">${isToday?'할 일을 추가해보세요':'기록 없음'}</div>`}
+        
+
+      }).join('')||`<div style="font-size:.8rem;color:var(--muted);padding:4px 0">할 일을 추가해보세요</div>`}
       </div>
-      ${isToday?`<div class="plan-add-row">
+      <div class="plan-add-row">
         <input class="plan-add-inp" id="planItemInp" type="text" placeholder="할 일 추가... (여러 줄 붙여넣기 가능)" onkeydown="if(event.key==='Enter')window.addPlanItem()" onpaste="window.handlePaste(event)">
         <button class="plan-add-btn" onclick="window.addPlanItem()">+</button>
-      </div>`:''}
-    </div>
+      </div>
+
     <div class="clover-box" style="${dp.finalCert?'border:2px solid #ffd93d;background:linear-gradient(135deg,rgba(255,217,61,.12),rgba(255,217,61,.03));box-shadow:0 0 18px rgba(255,217,61,.15)':''}">
       ${(()=>{
         // 가중치 반영한 클로버 목록 생성
@@ -662,10 +662,10 @@ function renderPlanBody(){
         <span style="font-family:'DM Mono',monospace;font-size:1rem;font-weight:700;color:${fc}">${ps.fine>0?'₩'+ps.fine.toLocaleString():'없음 🎉'}</span>
       </div>
       ${ps.fine>0?`<div style="font-size:.65rem;color:rgba(255,107,107,.6);text-align:right;margin-top:2px">미달성 ${PLAN_TARGET-ps.achieved}개 × ${PLAN_FINE.toLocaleString()}원</div>`:''}
-      ${isToday?`<button onclick="window.toggleFinalCert()" style="margin-top:10px;width:100%;padding:9px 0;border-radius:9px;border:${dp.finalCert?'2px solid #ffd93d':'1.5px dashed rgba(255,217,61,.4)'};background:${dp.finalCert?'rgba(255,217,61,.18)':'transparent'};color:${dp.finalCert?'#ffd93d':'rgba(255,217,61,.5)'};font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;letter-spacing:.3px">
+      <button onclick="window.toggleFinalCert()" style="margin-top:10px;width:100%;padding:9px 0;border-radius:9px;border:${dp.finalCert?'2px solid #ffd93d':'1.5px dashed rgba(255,217,61,.4)'};background:${dp.finalCert?'rgba(255,217,61,.18)':'transparent'};color:${dp.finalCert?'#ffd93d':'rgba(255,217,61,.5)'};font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;letter-spacing:.3px">
         ${dp.finalCert?'✅ 최종 인증 완료':'☑ 최종 인증하기'}
-      </button>`:''}
-    </div>`;
+      </button>
+
   } else {
     const isSpec=dp.isSpecialRest;
     const gc=isSpec?'#a855f7':'#00e5a0';
