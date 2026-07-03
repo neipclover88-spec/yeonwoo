@@ -195,7 +195,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import{getFirestore,doc,setDoc,onSnapshot}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import{getFirestore,doc,setDoc,onSnapshot,getDoc}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 const FB={apiKey:"AIzaSyCz9dmLAFVdp_fe4bneN5wlW8bknyH3bgM",authDomain:"yeonwoo-d3721.firebaseapp.com",projectId:"yeonwoo-d3721",storageBucket:"yeonwoo-d3721.firebasestorage.app",messagingSenderId:"1021874423334",appId:"1:1021874423334:web:35e70b78c8e0d6c18788e7"};
 const app=initializeApp(FB);
 const db=getFirestore(app);
@@ -394,8 +394,19 @@ async function saveMembers(){
 
 function subscribeOnePlan(mid){
   if(unsubPlans[mid])return;
+  // 이전 달 데이터 한 번 불러와서 합치기 (주가 월 경계 걸칠 때 휴무 계산용)
+  const pm=curMonth===0?{y:curYear-1,m:11}:{y:curYear,m:curMonth-1};
+  getDoc(doc(db,'miraclemorning',pdocId(mid,pm.y,pm.m))).then(snap=>{
+    if(snap.exists()){
+      if(!plansByMember[mid])plansByMember[mid]={};
+      const prev=snap.data();
+      Object.keys(prev).forEach(k=>{if(!plansByMember[mid][k])plansByMember[mid][k]=prev[k];});
+    }
+  }).catch(()=>{});
   unsubPlans[mid]=onSnapshot(doc(db,'miraclemorning',pdocId(mid,curYear,curMonth)),snap=>{
-    plansByMember[mid]=snap.exists()?snap.data():{};
+    if(!plansByMember[mid])plansByMember[mid]={};
+    // 기존 데이터(이전 달 포함)에 merge
+    Object.assign(plansByMember[mid],snap.exists()?snap.data():{});
     renderCalendar();
     if(openMemberId===mid&&document.getElementById('planOverlay').classList.contains('show'))renderPlanBody();
     document.getElementById('loading').classList.add('hidden');
