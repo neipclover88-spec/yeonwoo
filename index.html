@@ -608,9 +608,10 @@ function renderPlanBody(){
         const bg=dn?'rgba(0,229,160,.07)':fl?'rgba(255,107,107,.07)':'rgba(255,255,255,.02)';
         const bd=dn?'rgba(0,229,160,.2)':fl?'rgba(255,107,107,.2)':'var(--border)';
         const tc=dn?'#00e5a0':fl?'rgba(255,107,107,.5)':'var(--text)';
-        return`<div class="plan-item-row" data-id="${it.id}" style="position:relative;background:${bg};border:1px solid ${bd};cursor:${isToday?'grab':'default'}">
+        return`<div class="plan-item-row" data-id="${it.id}" style="position:relative;background:${bg};border:1px solid ${bd};cursor:default;touch-action:auto">
           ${(it.weight||1)>1?`<span style="position:absolute;top:-7px;left:30px;font-size:.58rem;color:#ffd93d;background:rgba(13,15,26,.95);padding:0 3px;border-radius:3px;line-height:1.4;letter-spacing:1px;pointer-events:none">${'★'.repeat(it.weight||1)}</span>`:''}
-          <div data-check="${it.id}" class="plan-chk" style="border-color:${dn?'#00e5a0':fl?'rgba(255,107,107,.3)':'var(--muted)'};background:${dn?'#00e5a0':'none'};color:#0d0f1a">${dn?'✓':''}</div>
+          ${isToday?`<span class="drag-handle" style="font-size:.9rem;color:var(--muted);opacity:.35;cursor:grab;flex-shrink:0;padding:0 3px;touch-action:none;user-select:none">⠿</span>`:''}
+          <div data-check="${it.id}" class="plan-chk" style="border-color:${dn?'#00e5a0':fl?'rgba(255,107,107,.3)':'var(--muted)'};background:${dn?'#00e5a0':'none'};color:#0d0f1a;cursor:pointer">${dn?'✓':''}</div>
           <div style="flex:1;min-width:0;display:flex;align-items:center;gap:4px">
             <span class="plan-item-text" style="flex:1;color:${tc};text-decoration:${dn||fl?'line-through':'none'};line-height:1.3;word-break:break-all">${esc(it.name)}</span>
             ${ed?`<span style="font-size:.52rem;color:#ffd93d;opacity:.65;flex-shrink:0;white-space:nowrap">✏수정</span>`:''}
@@ -936,31 +937,22 @@ function initPlanDrag(){
     const dk=row.querySelector('[data-del]');
     const ek=row.querySelector('[data-edit]');
     const wk=row.querySelector('[data-weight]');
+    const dh=row.querySelector('.drag-handle');
 
-    // 버튼마다 click 이벤트 직접 등록 (드래그 시스템과 분리)
+    // 버튼 클릭 이벤트
+    if(ck) ck.addEventListener('click',e=>{e.stopPropagation();window.togglePlanItem(ck.dataset.check);});
     if(fk) fk.addEventListener('click',e=>{e.stopPropagation();window.failPlanItem(fk.dataset.fail);});
     if(dk) dk.addEventListener('click',e=>{e.stopPropagation();window.delPlanItem(dk.dataset.del);});
     if(ek) ek.addEventListener('click',e=>{e.stopPropagation();window.editPlanItem(ek.dataset.edit);});
     if(wk) wk.addEventListener('click',e=>{e.stopPropagation();window.setItemWeight(wk.dataset.weight);});
 
-    // 드래그/체크는 버튼 바깥 영역에서만
-    row.addEventListener('pointerdown',e=>{
-      if(e.target.closest('button'))return;
-      let t=setTimeout(()=>{t=null;startDrag(e,row,list);},150);
-      const up=()=>{
-        row.removeEventListener('pointerup',up);
-        row.removeEventListener('pointermove',mv);
-        if(t!==null){clearTimeout(t);window.togglePlanItem(ck.dataset.check);}
-      };
-      const mv=(ev)=>{
-        if((Math.abs(ev.clientX-e.clientX)>6||Math.abs(ev.clientY-e.clientY)>6)&&t!==null){
-          clearTimeout(t);t=null;
-          row.removeEventListener('pointerup',up);row.removeEventListener('pointermove',mv);
-          startDrag(e,row,list);
-        }
-      };
-      row.addEventListener('pointerup',up);row.addEventListener('pointermove',mv);
-    });
+    // 드래그는 핸들에서만
+    if(dh){
+      dh.addEventListener('pointerdown',e=>{
+        e.preventDefault();
+        startDrag(e,row,list);
+      });
+    }
   });
 }
 
