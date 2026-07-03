@@ -649,7 +649,7 @@ function renderPlanBody(){
         const clovHtml=clovers.map((c,i)=>{
           const left=i*spacing;
           const base=`position:absolute;left:${left}px;top:0;font-size:2.6rem;line-height:1;z-index:${i+1}`;
-          if(c.fail)return`<span style="${base};opacity:.5;display:inline-block"><span>🍀</span><span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:900;color:#ff6b6b">✕</span></span>`;
+          if(c.fail)return`<span style="${base};display:inline-block"><svg width="42" height="42" viewBox="0 0 42 42" xmlns="http://www.w3.org/2000/svg"><g transform="translate(21,18) rotate(45)"><circle cx="0" cy="-11" r="11" fill="#ff6b6b"/><circle cx="11" cy="0" r="11" fill="#ff6b6b"/><circle cx="0" cy="11" r="11" fill="#ff6b6b"/><circle cx="-11" cy="0" r="11" fill="#ff6b6b"/><circle cx="0" cy="0" r="5" fill="#cc3333"/></g><rect x="19.5" y="30" width="3" height="8" rx="1.5" fill="#cc3333"/></svg></span>`;
           if(c.done)return`<span style="${base};filter:drop-shadow(0 0 5px rgba(0,229,160,.5))">🍀</span>`;
           return`<span style="${base};opacity:.15">🍀</span>`;
         }).join('');
