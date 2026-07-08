@@ -140,6 +140,40 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   </div>
 </div>
 
+<!-- 깜짝 미션 설정 모달 -->
+<div class="plan-overlay" id="missionOverlay" onclick="if(event.target===this)window.closeMissionSetup()">
+  <div class="plan-sheet" style="max-height:60vh">
+    <div class="plan-hdr">
+      <div class="plan-hdr-top">
+        <div class="plan-mem-lbl" style="color:#ffd93d;font-size:1rem">🎯 깜짝 미션 설정</div>
+        <button class="plan-close" onclick="window.closeMissionSetup()">✕</button>
+      </div>
+    </div>
+    <div class="plan-body" style="gap:.8rem">
+      <div>
+        <div style="font-size:.7rem;color:var(--muted);margin-bottom:5px">⏱ 시간 제한</div>
+        <input id="missionTime" type="text" placeholder="예: 30분, 1시간"
+          style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.92rem;padding:8px 12px;outline:none;font-family:inherit">
+      </div>
+      <div>
+        <div style="font-size:.7rem;color:var(--muted);margin-bottom:5px">🎯 목표</div>
+        <input id="missionGoal" type="text" placeholder="예: 수학 문제 10개 풀기"
+          style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.92rem;padding:8px 12px;outline:none;font-family:inherit">
+      </div>
+      <div>
+        <div style="font-size:.7rem;color:var(--muted);margin-bottom:5px">🎁 보상</div>
+        <input id="missionReward" type="text" placeholder="예: 치킨, 유튜브 1시간"
+          style="width:100%;background:var(--s2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:.92rem;padding:8px 12px;outline:none;font-family:inherit"
+          onkeydown="if(event.key==='Enter')window.startMission()">
+      </div>
+      <button onclick="window.startMission()"
+        style="width:100%;padding:11px 0;background:linear-gradient(135deg,rgba(255,217,61,.25),rgba(255,217,61,.1));border:1.5px solid #ffd93d;color:#ffd93d;border-radius:10px;font-size:.95rem;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.5px">
+        🚀 미션 시작!
+      </button>
+    </div>
+  </div>
+</div>
+
 <div class="plan-overlay" id="dayPicker" onclick="if(event.target===this)window.closeDayPicker()">
   <div class="plan-sheet" style="max-height:60vh">
     <div class="plan-hdr">
@@ -664,7 +698,39 @@ function renderPlanBody(){
       <button onclick="window.toggleFinalCert()" style="margin-top:10px;width:100%;padding:9px 0;border-radius:9px;border:${dp.finalCert?'2px solid #ffd93d':'1.5px dashed rgba(255,217,61,.4)'};background:${dp.finalCert?'rgba(255,217,61,.18)':'transparent'};color:${dp.finalCert?'#ffd93d':'rgba(255,217,61,.5)'};font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;letter-spacing:.3px">
         ${dp.finalCert?'✅ 최종 인증 완료':'☑ 최종 인증하기'}
       </button>
-    </div>`;
+    </div>
+    ${dp.mission?`
+    <div id="missionCard" style="background:${dp.mission.done?'linear-gradient(135deg,rgba(255,217,61,.18),rgba(255,217,61,.06))':'linear-gradient(135deg,rgba(255,107,107,.1),rgba(255,107,107,.03))'};border:2px solid ${dp.mission.done?'#ffd93d':'rgba(255,107,107,.5)'};border-radius:14px;padding:16px;text-align:center">
+      ${dp.mission.done?`
+        <div style="font-size:2.5rem;margin-bottom:4px">🏆</div>
+        <div style="font-size:1.3rem;font-weight:900;color:#ffd93d;letter-spacing:.5px;margin-bottom:6px">깜짝 미션 달성!</div>
+        <div style="font-size:1rem;color:var(--text);font-weight:600;margin-bottom:10px">${esc(dp.mission.goal)}</div>
+        ${dp.mission.time?`<div style="font-size:.75rem;color:var(--muted);margin-bottom:8px">⏱ ${esc(dp.mission.time)}</div>`:''}
+        <div style="background:rgba(255,217,61,.15);border:1px solid rgba(255,217,61,.4);border-radius:8px;padding:8px 14px;display:inline-block">
+          <span style="font-size:.8rem;color:#ffd93d;font-weight:700">🎁 보상: ${esc(dp.mission.reward)}</span>
+        </div>
+        <div style="font-size:1.6rem;margin-top:10px">🎉✨🎊</div>
+        <div style="display:flex;gap:6px;margin-top:12px">
+          <button onclick="window.captureMission()" style="flex:1;background:rgba(255,217,61,.15);border:1px solid rgba(255,217,61,.4);color:#ffd93d;border-radius:8px;padding:7px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit">📷 저장</button>
+          <button onclick="window.deleteMission()" style="flex:1;background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:7px;font-size:.8rem;cursor:pointer;font-family:inherit">✕ 삭제</button>
+        </div>
+      `:`
+        <div style="font-size:1.5rem;margin-bottom:4px">🎯</div>
+        <div style="font-size:.7rem;color:rgba(255,107,107,.8);font-weight:700;letter-spacing:1px;margin-bottom:4px">깜짝 미션 진행 중</div>
+        ${dp.mission.time?`<div style="font-size:.85rem;color:var(--muted);margin-bottom:6px">⏱ ${esc(dp.mission.time)}</div>`:''}
+        <div style="font-size:1rem;color:var(--text);font-weight:700;margin-bottom:8px">${esc(dp.mission.goal)}</div>
+        <div style="font-size:.8rem;color:var(--muted);margin-bottom:12px">🎁 달성 시 보상: <b style="color:#ffd93d">${esc(dp.mission.reward)}</b></div>
+        <div style="display:flex;gap:6px">
+          <button onclick="window.completeMission()" style="flex:2;background:linear-gradient(135deg,rgba(255,217,61,.3),rgba(255,217,61,.1));border:2px solid #ffd93d;color:#ffd93d;border-radius:9px;padding:9px;font-size:.92rem;font-weight:900;cursor:pointer;font-family:inherit;letter-spacing:.5px">🏆 달성!</button>
+          <button onclick="window.deleteMission()" style="flex:1;background:none;border:1px solid var(--border);color:var(--muted);border-radius:9px;padding:9px;font-size:.8rem;cursor:pointer;font-family:inherit">포기</button>
+        </div>
+      `}
+    </div>
+    `:`
+    <button onclick="window.openMissionSetup()" style="width:100%;padding:9px 0;background:none;border:1.5px dashed rgba(255,107,107,.3);color:rgba(255,107,107,.6);border-radius:10px;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s" onmouseover="this.style.borderColor='#ff6b6b';this.style.color='#ff6b6b'" onmouseout="this.style.borderColor='rgba(255,107,107,.3)';this.style.color='rgba(255,107,107,.6)'">
+      🎯 깜짝 미션 추가
+    </button>
+    `}`;
   } else {
     const isSpec=dp.isSpecialRest;
     const gc=isSpec?'#a855f7':'#00e5a0';
@@ -725,6 +791,68 @@ function renderPlanBody(){
   document.getElementById('planBody').innerHTML=b;
   initPlanDrag();
 }
+
+// ── 깜짝 미션 ──────────────────────────────────
+window.openMissionSetup=function(){
+  document.getElementById('missionOverlay').classList.add('show');
+  setTimeout(()=>document.getElementById('missionGoal').focus(),100);
+};
+window.closeMissionSetup=function(){
+  document.getElementById('missionOverlay').classList.remove('show');
+};
+window.startMission=function(){
+  if(!openMemberId)return;
+  const goal=document.getElementById('missionGoal').value.trim();
+  const time=document.getElementById('missionTime').value.trim();
+  const reward=document.getElementById('missionReward').value.trim();
+  if(!goal)return;
+  const today=planDateStr,dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
+  dp.mission={goal,time,reward,done:false};
+  savePlan(openMemberId,today,dp);renderPlanBody();
+  window.closeMissionSetup();
+  document.getElementById('missionGoal').value='';
+  document.getElementById('missionTime').value='';
+  document.getElementById('missionReward').value='';
+};
+window.completeMission=function(){
+  if(!openMemberId)return;
+  const today=planDateStr,dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
+  if(dp.mission) dp.mission.done=true;
+  savePlan(openMemberId,today,dp);renderPlanBody();
+};
+window.deleteMission=function(){
+  if(!openMemberId)return;
+  const today=planDateStr,dp=JSON.parse(JSON.stringify(getPlan(openMemberId,today)));
+  delete dp.mission;
+  savePlan(openMemberId,today,dp);renderPlanBody();
+};
+window.captureMission=function(){
+  const card=document.getElementById('missionCard');
+  if(!card||typeof html2canvas==='undefined')return;
+  html2canvas(card,{backgroundColor:'#0e1320',scale:2,useCORS:true}).then(async canvas=>{
+    const fileName='미션달성.png';
+    const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if(isMobile&&navigator.share){
+      try{
+        const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
+        await navigator.share({files:[new File([blob],fileName,{type:'image/png'})],title:'깜짝 미션 달성!'});
+        return;
+      }catch(e){if(e.name==='AbortError')return;}
+    }
+    if(isMobile){
+      const ov=document.createElement('div');
+      ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px';
+      const hint=document.createElement('div');hint.textContent='꾹 눌러서 저장';hint.style.cssText='color:#ffd93d;font-size:.85rem;font-weight:700';
+      const img=document.createElement('img');img.src=canvas.toDataURL('image/png');img.style.cssText='max-width:100%;max-height:80vh;border-radius:12px';
+      const cl=document.createElement('button');cl.textContent='닫기';cl.style.cssText='background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:8px;padding:8px 24px;font-size:.85rem;cursor:pointer';
+      cl.onclick=()=>document.body.removeChild(ov);
+      ov.appendChild(hint);ov.appendChild(img);ov.appendChild(cl);
+      document.body.appendChild(ov);
+    } else {
+      const a=document.createElement('a');a.download=fileName;a.href=canvas.toDataURL('image/png');a.click();
+    }
+  });
+};
 
 window.toggleFinalCert=function(){
   if(!openMemberId)return;
