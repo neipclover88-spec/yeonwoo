@@ -192,6 +192,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
       <div class="plan-hdr-top">
         <div class="plan-mem-lbl" id="planMemLbl"></div>
         <div style="display:flex;align-items:center;gap:.4rem">
+          <button id="missionBtn" style="background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);color:rgba(255,107,107,.9);border-radius:8px;height:30px;padding:0 8px;cursor:pointer;font-size:.72rem;font-weight:700;font-family:inherit;white-space:nowrap">🎯 미션</button>
           <button class="plan-icon-btn" onclick="window.capturePlan()">📷</button>
           <button class="plan-close" onclick="window.closePlan()">✕</button>
         </div>
@@ -599,6 +600,9 @@ window.openPlan=function(mid, dateStr){
   document.getElementById('planMemLbl').innerHTML=`<span>${mem.emoji}</span><span>${mem.name}의 할 일</span>`;
   document.getElementById('planDateLbl').innerHTML=`<span style="color:var(--text)">${m}월 ${d}일</span> <span style="color:${dc}">${days[dt.getDay()]}요일</span>`;
   document.getElementById('planOverlay').classList.add('show');
+  // 미션 버튼 리스너
+  const mBtn=document.getElementById('missionBtn');
+  if(mBtn){mBtn.onclick=null;mBtn.addEventListener('click',window.openMissionSetup);}
   renderPlanBody();
 };
 
@@ -711,8 +715,8 @@ function renderPlanBody(){
         </div>
         <div style="font-size:1.6rem;margin-top:10px">🎉✨🎊</div>
         <div style="display:flex;gap:6px;margin-top:12px">
-          <button onclick="window.captureMission()" style="flex:1;background:rgba(255,217,61,.15);border:1px solid rgba(255,217,61,.4);color:#ffd93d;border-radius:8px;padding:7px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit">📷 저장</button>
-          <button onclick="window.deleteMission()" style="flex:1;background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:7px;font-size:.8rem;cursor:pointer;font-family:inherit">✕ 삭제</button>
+          <button id="captureMissionBtn" style="flex:1;background:rgba(255,217,61,.15);border:1px solid rgba(255,217,61,.4);color:#ffd93d;border-radius:8px;padding:7px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit">📷 저장</button>
+          <button id="deleteMissionBtn1" style="flex:1;background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:7px;font-size:.8rem;cursor:pointer;font-family:inherit">✕ 삭제</button>
         </div>
       `:`
         <div style="font-size:1.5rem;margin-bottom:4px">🎯</div>
@@ -721,13 +725,13 @@ function renderPlanBody(){
         <div style="font-size:1rem;color:var(--text);font-weight:700;margin-bottom:8px">${esc(dp.mission.goal)}</div>
         <div style="font-size:.8rem;color:var(--muted);margin-bottom:12px">🎁 달성 시 보상: <b style="color:#ffd93d">${esc(dp.mission.reward)}</b></div>
         <div style="display:flex;gap:6px">
-          <button onclick="window.completeMission()" style="flex:2;background:linear-gradient(135deg,rgba(255,217,61,.3),rgba(255,217,61,.1));border:2px solid #ffd93d;color:#ffd93d;border-radius:9px;padding:9px;font-size:.92rem;font-weight:900;cursor:pointer;font-family:inherit;letter-spacing:.5px">🏆 달성!</button>
-          <button onclick="window.deleteMission()" style="flex:1;background:none;border:1px solid var(--border);color:var(--muted);border-radius:9px;padding:9px;font-size:.8rem;cursor:pointer;font-family:inherit">포기</button>
+          <button id="completeMissionBtn" style="flex:2;background:linear-gradient(135deg,rgba(255,217,61,.3),rgba(255,217,61,.1));border:2px solid #ffd93d;color:#ffd93d;border-radius:9px;padding:9px;font-size:.92rem;font-weight:900;cursor:pointer;font-family:inherit;letter-spacing:.5px">🏆 달성!</button>
+          <button id="deleteMissionBtn2" style="flex:1;background:none;border:1px solid var(--border);color:var(--muted);border-radius:9px;padding:9px;font-size:.8rem;cursor:pointer;font-family:inherit">포기</button>
         </div>
       `}
     </div>
     `:`
-    <button onclick="window.openMissionSetup()" style="width:100%;padding:9px 0;background:none;border:1.5px dashed rgba(255,107,107,.3);color:rgba(255,107,107,.6);border-radius:10px;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s" onmouseover="this.style.borderColor='#ff6b6b';this.style.color='#ff6b6b'" onmouseout="this.style.borderColor='rgba(255,107,107,.3)';this.style.color='rgba(255,107,107,.6)'">
+    <button id="addMissionBtn" style="width:100%;padding:9px 0;background:none;border:1.5px dashed rgba(255,107,107,.3);color:rgba(255,107,107,.6);border-radius:10px;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s" onmouseover="this.style.borderColor='#ff6b6b';this.style.color='#ff6b6b'" onmouseout="this.style.borderColor='rgba(255,107,107,.3)';this.style.color='rgba(255,107,107,.6)'">
       🎯 깜짝 미션 추가
     </button>
     `}`;
@@ -790,6 +794,13 @@ function renderPlanBody(){
   }
   document.getElementById('planBody').innerHTML=b;
   initPlanDrag();
+  // 미션 카드 버튼 리스너
+  const el=id=>document.getElementById(id);
+  if(el('completeMissionBtn')) el('completeMissionBtn').addEventListener('click',window.completeMission);
+  if(el('deleteMissionBtn1')) el('deleteMissionBtn1').addEventListener('click',window.deleteMission);
+  if(el('deleteMissionBtn2')) el('deleteMissionBtn2').addEventListener('click',window.deleteMission);
+  if(el('captureMissionBtn')) el('captureMissionBtn').addEventListener('click',window.captureMission);
+  if(el('addMissionBtn')) el('addMissionBtn').addEventListener('click',window.openMissionSetup);
 }
 
 // ── 깜짝 미션 ──────────────────────────────────
