@@ -1016,7 +1016,6 @@ window.capturePlan=function(){
   const clone=card.cloneNode(true);
   const cloneBtns=clone.querySelector('.plan-hdr').querySelector('div:last-child');
   if(cloneBtns)cloneBtns.style.display='none';
-  // absolute 포지셔닝으로 뷰포트 높이 제약 없이 전체 렌더링
   const wrap=document.createElement('div');
   wrap.style.cssText='position:absolute;left:-9999px;top:0;width:'+card.offsetWidth+'px;overflow:visible;pointer-events:none';
   clone.style.cssText='max-height:none;height:auto;border-radius:0;overflow:visible;width:100%';
@@ -1027,51 +1026,50 @@ window.capturePlan=function(){
   setTimeout(()=>{
     html2canvas(clone,{backgroundColor:'#0e1320',scale:2,useCORS:true,width:wrap.offsetWidth,height:clone.scrollHeight}).then(async canvas=>{
       document.body.removeChild(wrap);
-      const fileName=`할일_${todayStr()}.png`;
-
-      // 모바일 여부 확인
-      const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-      if(isMobile&&navigator.share){
-        // 모바일: 공유 시트
-        try{
-          const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
-          const file=new File([blob],fileName,{type:'image/png'});
-          await navigator.share({files:[file],title:'오늘 할 일'});
-          return;
-        }catch(e){
-          if(e.name==='AbortError')return;
-          // 공유 실패 시 이미지 오버레이로 fallback
-        }
-      }
-
-      if(isMobile){
-        // 모바일 공유 실패: 꾹 눌러 저장 오버레이
-        const overlay=document.createElement('div');
-        overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px';
-        const hint=document.createElement('div');
-        hint.textContent='이미지를 꾹 눌러서 저장하세요';
-        hint.style.cssText='color:#ffd93d;font-size:.85rem;font-weight:700;font-family:\'Noto Sans KR\',sans-serif';
-        const img=document.createElement('img');
-        img.src=canvas.toDataURL('image/png');
-        img.style.cssText='max-width:100%;max-height:80vh;border-radius:12px';
-        const closeBtn=document.createElement('button');
-        closeBtn.textContent='닫기';
-        closeBtn.style.cssText='background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:8px;padding:8px 24px;font-size:.85rem;cursor:pointer;font-family:\'Noto Sans KR\',sans-serif';
-        closeBtn.addEventListener('click',()=>document.body.removeChild(overlay));
-        overlay.addEventListener('click',e=>{if(e.target===overlay)document.body.removeChild(overlay);});
-        overlay.appendChild(hint);overlay.appendChild(img);overlay.appendChild(closeBtn);
-        document.body.appendChild(overlay);
-      } else {
-        // PC: 바로 다운로드
-        const a=document.createElement('a');
-        a.download=fileName;
-        a.href=canvas.toDataURL('image/png');
-        a.click();
-      }
+      showCaptureOverlay(canvas,'할일_'+todayStr()+'.png');
     }).catch(()=>{try{document.body.removeChild(wrap);}catch(e){}});
   },150);
 };
+
+async function showCaptureOverlay(canvas,fileName){
+  const dataUrl=canvas.toDataURL('image/png');
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px';
+  const hint=document.createElement('div');
+  hint.textContent='꾹 눌러 저장하거나 아래 버튼을 이용하세요';
+  hint.style.cssText='color:#ffd93d;font-size:.78rem;font-weight:700;text-align:center';
+  const img=document.createElement('img');
+  img.src=dataUrl;
+  img.style.cssText='max-width:100%;max-height:65vh;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.5)';
+  const btnRow=document.createElement('div');
+  btnRow.style.cssText='display:flex;gap:8px;width:100%;max-width:320px';
+  const dlBtn=document.createElement('button');
+  dlBtn.textContent='💾 저장';
+  dlBtn.style.cssText='flex:1;background:rgba(0,229,160,.15);border:1px solid rgba(0,229,160,.4);color:#00e5a0;border-radius:9px;padding:10px;font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit';
+  dlBtn.addEventListener('click',()=>{const a=document.createElement('a');a.download=fileName;a.href=dataUrl;a.click();});
+  const shareBtn=document.createElement('button');
+  shareBtn.textContent='📤 공유';
+  shareBtn.style.cssText='flex:1;background:rgba(77,150,255,.15);border:1px solid rgba(77,150,255,.4);color:#4d96ff;border-radius:9px;padding:10px;font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit';
+  shareBtn.addEventListener('click',async()=>{
+    if(navigator.share){
+      try{
+        const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
+        await navigator.share({files:[new File([blob],fileName,{type:'image/png'})],title:'오늘 할 일'});
+        document.body.removeChild(ov);return;
+      }catch(e){if(e.name==='AbortError'){document.body.removeChild(ov);return;}}
+    }
+    const a=document.createElement('a');a.download=fileName;a.href=dataUrl;a.click();
+  });
+  const cl=document.createElement('button');
+  cl.textContent='닫기';
+  cl.style.cssText='background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);border-radius:9px;padding:10px 16px;font-size:.82rem;cursor:pointer;font-family:inherit';
+  cl.addEventListener('click',()=>document.body.removeChild(ov));
+  ov.addEventListener('click',e=>{if(e.target===ov)document.body.removeChild(ov);});
+  btnRow.appendChild(dlBtn);btnRow.appendChild(shareBtn);btnRow.appendChild(cl);
+  ov.appendChild(hint);ov.appendChild(img);ov.appendChild(btnRow);
+  document.body.appendChild(ov);
+}
+
 
 function initPlanDrag(){
   const list=document.getElementById('planItemList');if(!list)return;
