@@ -557,18 +557,26 @@ function renderCalendar(){
     const top=document.createElement('div');top.className='day-top';
     top.innerHTML=`<span class="day-num">${d}</span>${hol?`<span class="day-hol">${hol}</span>`:''}`;
     cell.appendChild(top);
-    const mems=document.createElement('div');mems.className='cal-members';
+    const mems=document.createElement('div');
+    const compact=members.length>=3;
+    mems.className='cal-members';
+    if(compact) mems.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:1px;margin-top:2px';
     members.forEach(mem=>{
       const ach=calcAch(mem.id,ds);
       if(ach.type==='empty')return;
-      const row=document.createElement('div');row.className='cal-mem-row';
+      const row=document.createElement('div');
+      row.style.cssText=compact
+        ?'display:flex;align-items:center;gap:1px;padding:1px 2px;border-radius:3px'
+        :'display:flex;align-items:center;gap:2px;padding:1px 2px;border-radius:5px';
       let stat='';
       if(ach.type==='rest') stat=`<span class="cal-mem-stat s-rest">휴</span>`;
       else if(ach.type==='special') stat=`<span class="cal-mem-stat s-spec">특</span>`;
       else{const pct=ach.achieved/ach.total;
         const isCert=plansByMember[mem.id]?.[ds]?.finalCert;
-        stat=`<span class="cal-mem-stat" style="color:${isCert?'#ffd93d':pct>=1?'#00e5a0':'#ffd93d'};${isCert?'text-shadow:0 0 6px rgba(255,217,61,.6)':''}">${ach.achieved}/${ach.total}${isCert?'✓':''}</span>`;}
-      row.innerHTML=`<span class="cal-mem-emoji">${mem.emoji}</span>${stat}`;
+        const fs=compact?'font-size:.52rem':'';
+        stat=`<span class="cal-mem-stat" style="color:${isCert?'#ffd93d':pct>=1?'#00e5a0':'#ffd93d'};${isCert?'text-shadow:0 0 6px rgba(255,217,61,.6)':''}${fs?';'+fs:''}">${ach.achieved}/${ach.total}${isCert?'✓':''}</span>`;}
+      const emojiSz=compact?'font-size:.65rem':'';
+      row.innerHTML=`<span class="cal-mem-emoji" style="${emojiSz}">${mem.emoji}</span>${stat}`;
       mems.appendChild(row);
     });
     cell.appendChild(mems);
@@ -1036,36 +1044,23 @@ async function showCaptureOverlay(canvas,fileName){
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px';
   const hint=document.createElement('div');
-  hint.textContent='꾹 눌러 저장하거나 아래 버튼을 이용하세요';
+  hint.textContent='이미지를 꾹 눌러 갤러리에 저장하거나 💾 저장을 누르세요';
   hint.style.cssText='color:#ffd93d;font-size:.78rem;font-weight:700;text-align:center';
   const img=document.createElement('img');
   img.src=dataUrl;
-  img.style.cssText='max-width:100%;max-height:65vh;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.5)';
+  img.style.cssText='max-width:100%;max-height:68vh;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.5)';
   const btnRow=document.createElement('div');
   btnRow.style.cssText='display:flex;gap:8px;width:100%;max-width:320px';
   const dlBtn=document.createElement('button');
   dlBtn.textContent='💾 저장';
-  dlBtn.style.cssText='flex:1;background:rgba(0,229,160,.15);border:1px solid rgba(0,229,160,.4);color:#00e5a0;border-radius:9px;padding:10px;font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit';
+  dlBtn.style.cssText='flex:1;background:rgba(0,229,160,.15);border:1px solid rgba(0,229,160,.4);color:#00e5a0;border-radius:9px;padding:10px;font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit';
   dlBtn.addEventListener('click',()=>{const a=document.createElement('a');a.download=fileName;a.href=dataUrl;a.click();});
-  const shareBtn=document.createElement('button');
-  shareBtn.textContent='📤 공유';
-  shareBtn.style.cssText='flex:1;background:rgba(77,150,255,.15);border:1px solid rgba(77,150,255,.4);color:#4d96ff;border-radius:9px;padding:10px;font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit';
-  shareBtn.addEventListener('click',async()=>{
-    if(navigator.share){
-      try{
-        const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
-        await navigator.share({files:[new File([blob],fileName,{type:'image/png'})],title:'오늘 할 일'});
-        document.body.removeChild(ov);return;
-      }catch(e){if(e.name==='AbortError'){document.body.removeChild(ov);return;}}
-    }
-    const a=document.createElement('a');a.download=fileName;a.href=dataUrl;a.click();
-  });
   const cl=document.createElement('button');
   cl.textContent='닫기';
-  cl.style.cssText='background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);border-radius:9px;padding:10px 16px;font-size:.82rem;cursor:pointer;font-family:inherit';
+  cl.style.cssText='flex:1;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);border-radius:9px;padding:10px;font-size:.82rem;cursor:pointer;font-family:inherit';
   cl.addEventListener('click',()=>document.body.removeChild(ov));
   ov.addEventListener('click',e=>{if(e.target===ov)document.body.removeChild(ov);});
-  btnRow.appendChild(dlBtn);btnRow.appendChild(shareBtn);btnRow.appendChild(cl);
+  btnRow.appendChild(dlBtn);btnRow.appendChild(cl);
   ov.appendChild(hint);ov.appendChild(img);ov.appendChild(btnRow);
   document.body.appendChild(ov);
 }
