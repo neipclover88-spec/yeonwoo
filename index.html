@@ -41,7 +41,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .dow{text-align:center;font-size:.6rem;font-family:'DM Mono',monospace;color:var(--muted);padding:2px 0}
 .dow.sun{color:rgba(255,107,107,.7)}.dow.sat{color:rgba(77,150,255,.7)}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
-.cal-cell{background:var(--s1);border:1px solid var(--border);border-radius:9px;padding:.3rem .2rem .35rem;display:flex;flex-direction:column;gap:2px;min-height:70px;overflow:hidden;min-width:0}
+.cal-cell{background:var(--s1);border:1px solid var(--border);border-radius:9px;padding:.3rem .25rem .35rem;display:flex;flex-direction:column;gap:2px;min-height:78px;overflow:hidden;min-width:0}
 .cal-cell.empty{background:transparent;border-color:transparent;pointer-events:none}
 .cal-cell.today{border-color:var(--accent)}
 .cal-cell.today .day-num{color:var(--accent)}
@@ -565,25 +565,25 @@ function renderCalendar(){
     top.innerHTML=`<span class="day-num">${d}</span>${hol?`<span class="day-hol">${hol}</span>`:''}`;
     cell.appendChild(top);
     const mems=document.createElement('div');
+    const cnt=members.filter(m=>{const a=calcAch(m.id,ds);return a.type!=='empty';}).length;
     const compact=members.length>=3;
     mems.className='cal-members';
-    if(compact) mems.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:1px;margin-top:2px';
+    if(compact) mems.style.cssText='display:flex;flex-direction:column;gap:1px;margin-top:2px';
     members.forEach(mem=>{
       const ach=calcAch(mem.id,ds);
       if(ach.type==='empty')return;
       const row=document.createElement('div');
-      row.style.cssText=compact
-        ?'display:flex;align-items:center;gap:1px;padding:1px 2px;border-radius:3px'
-        :'display:flex;align-items:center;gap:2px;padding:1px 2px;border-radius:5px';
+      row.style.cssText='display:flex;align-items:center;gap:2px;min-width:0';
       let stat='';
-      if(ach.type==='rest') stat=`<span class="cal-mem-stat s-rest">휴</span>`;
-      else if(ach.type==='special') stat=`<span class="cal-mem-stat s-spec">특</span>`;
-      else{const pct=ach.achieved/ach.total;
+      if(ach.type==='rest') stat=`<span style="font-size:.5rem;color:#4d96ff;background:rgba(77,150,255,.15);border-radius:3px;padding:0 2px;flex-shrink:0">휴</span>`;
+      else if(ach.type==='special') stat=`<span style="font-size:.5rem;color:#a855f7;background:rgba(168,85,247,.15);border-radius:3px;padding:0 2px;flex-shrink:0">특</span>`;
+      else{
+        const pct=ach.achieved/ach.total;
         const isCert=plansByMember[mem.id]?.[ds]?.finalCert;
-        const fs=compact?'font-size:.52rem':'';
-        stat=`<span class="cal-mem-stat" style="color:${isCert?'#ffd93d':pct>=1?'#00e5a0':'#ffd93d'};${isCert?'text-shadow:0 0 6px rgba(255,217,61,.6)':''}${fs?';'+fs:''}">${ach.achieved}/${ach.total}${isCert?'✓':''}</span>`;}
-      const emojiSz=compact?'font-size:.65rem':'';
-      row.innerHTML=`<span class="cal-mem-emoji" style="${emojiSz}">${mem.emoji}</span>${stat}`;
+        const clr=isCert?'#ffd93d':pct>=1?'#00e5a0':'#ffd93d';
+        stat=`<span style="font-family:'DM Mono',monospace;font-size:${compact?'.5rem':'.6rem'};font-weight:700;color:${clr};${isCert?'text-shadow:0 0 4px rgba(255,217,61,.5)':''}flex-shrink:0;white-space:nowrap">${ach.achieved}/${ach.total}${isCert?'✓':''}</span>`;
+      }
+      row.innerHTML=`<span style="font-size:${compact?'.68rem':'.82rem'};line-height:1;flex-shrink:0">${mem.emoji}</span>${stat}`;
       mems.appendChild(row);
     });
     cell.appendChild(mems);
