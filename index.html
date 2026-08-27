@@ -123,11 +123,25 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
     <span class="nav-dot"></span>
     목표달성 인증 스터디
   </div>
-  <span class="sync-dot" id="syncDot">● 연결 중</span>
+  <div style="display:flex;align-items:center;gap:.5rem">
+    <button id="memberMgmtBtn" style="font-size:.7rem;padding:.2rem .6rem;border-radius:100px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-family:inherit">⚙ 관리</button>
+    <span class="sync-dot" id="syncDot">● 연결 중</span>
+  </div>
 </nav>
 
 <!-- 날짜 클릭 멤버 선택 -->
 <!-- 이모지 선택 팝업 -->
+<!-- 멤버 관리 모달 -->
+<div id="memberMgmtOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:1000;align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)window.closeMemberMgmt()">
+  <div style="background:#0e1320;border:1px solid var(--border);border-radius:18px;width:100%;max-width:400px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:1rem;font-weight:700;color:var(--text)">⚙ 멤버 관리</div>
+      <button onclick="window.closeMemberMgmt()" style="background:none;border:none;color:var(--muted);font-size:1.25rem;cursor:pointer;padding:0">✕</button>
+    </div>
+    <div id="memberMgmtList" style="flex:1;overflow-y:auto;padding:.8rem 1rem;display:flex;flex-direction:column;gap:.5rem"></div>
+  </div>
+</div>
+
 <div class="plan-overlay" id="emojiPickerOverlay" onclick="if(event.target===this)window.closeEmojiPicker()">
   <div class="plan-sheet" style="max-height:70vh">
     <div class="plan-hdr">
@@ -405,8 +419,6 @@ function renderChips(){
         title="이모지 변경">${m.emoji}</button>
       <span class="chip-name">${m.name}</span>
       ${idx<members.length-1?`<button class="chip-order-btn" data-right="${m.id}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.65rem;padding:0 1px;opacity:.45;flex-shrink:0">▶</button>`:''}
-      <span class="chip-del-btn" data-member-id="${m.id}"
-        style="font-size:.6rem;color:var(--muted);opacity:.5;margin-left:1px;padding:2px 3px;border-radius:3px;cursor:pointer">✕</span>
     </div>`).join('')+
     `<div class="member-chip add-chip-btn"
       style="border-style:dashed;color:var(--muted);border-color:var(--muted)">
@@ -417,12 +429,40 @@ function renderChips(){
     const mid=chip.dataset.id;
     chip.addEventListener('click',()=>window.openPlan(mid));
     chip.querySelector('.emoji-change-btn').addEventListener('click',e=>{e.stopPropagation();window.openEmojiPicker(mid);});
-    chip.querySelector('.chip-del-btn').addEventListener('click',e=>{e.stopPropagation();window.removeMember(mid);});
     chip.querySelector('[data-left]')?.addEventListener('click',e=>{e.stopPropagation();window.moveMember(mid,-1);});
     chip.querySelector('[data-right]')?.addEventListener('click',e=>{e.stopPropagation();window.moveMember(mid,1);});
   });
   container.querySelector('.add-chip-btn')?.addEventListener('click',()=>window.toggleAddForm());
 }
+
+window.openMemberMgmt=function(){
+  const list=document.getElementById('memberMgmtList');
+  list.innerHTML=members.map(m=>`
+    <div style="display:flex;align-items:center;gap:.7rem;background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:.65rem .8rem">
+      <span style="font-size:1.3rem">${m.emoji}</span>
+      <span style="flex:1;font-size:.95rem;font-weight:600">${m.name}</span>
+      <button data-del-member="${m.id}" style="background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.3);color:#ff6b6b;border-radius:7px;padding:5px 12px;font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit">삭제</button>
+    </div>
+  `).join('');
+  list.querySelectorAll('[data-del-member]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const id=btn.dataset.delMember;
+      const mem=members.find(m=>m.id===id);
+      if(!mem)return;
+      btn.textContent='정말 삭제?';
+      btn.style.background='rgba(255,107,107,.25)';
+      btn.addEventListener('click',()=>{
+        members=members.filter(m=>m.id!==id);
+        saveMembers();renderChips();renderCalendar();
+        window.openMemberMgmt(); // 목록 새로고침
+      },{once:true});
+    },{once:true});
+  });
+  document.getElementById('memberMgmtOverlay').style.display='flex';
+};
+window.closeMemberMgmt=function(){
+  document.getElementById('memberMgmtOverlay').style.display='none';
+};
 
 window.moveMember=function(id,dir){
   const idx=members.findIndex(m=>m.id===id);
@@ -1155,7 +1195,8 @@ try{members.forEach(mem=>subscribeOnePlan(mem.id));}catch(e){console.error('subs
 try{renderCalendar();}catch(e){console.error('renderCalendar:',e);}
 document.getElementById('loading').classList.add('hidden');
 // Realtime DB에서 멤버 동기화
-try{subscribeMembers();}catch(e){console.error('subscribeMembers:',e);}
+try{document.getElementById('memberMgmtBtn').addEventListener('click',window.openMemberMgmt);
+subscribeMembers();}catch(e){console.error('subscribeMembers:',e);}
 setTimeout(()=>document.getElementById('loading').classList.add('hidden'),2000);
 </script>
 </body>
